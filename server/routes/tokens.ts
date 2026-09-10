@@ -4,6 +4,7 @@ import { TokenModel } from '../models/Token.ts';
 import { UserModel } from '../models/User.ts';
 import { ServiceModel, DEFAULT_SERVICES } from '../models/Service.ts';
 import { BookingModel } from '../models/Booking.ts';
+import { SaleModel } from '../models/Sale.ts';
 import { dbStatus } from '../db.ts';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth.ts';
 import {
@@ -228,12 +229,13 @@ router.get('/services', async (_req, res): Promise<void> => {
         averageMinutes: s.averageMinutes || 10,
         category: s.category || 'General',
         fee: s.fee || 0,
-        isActive: s.isActive !== false
+        isActive: s.isActive !== false,
+        requiresBilling: Boolean(s.requiresBilling)
       }));
       res.json(formatted);
       return;
     }
-    res.json(DEFAULT_SERVICES.map(s => ({ ...s, fee: 0, isActive: true })));
+    res.json(DEFAULT_SERVICES.map(s => ({ ...s, fee: 0, isActive: true, requiresBilling: Boolean((s as any).requiresBilling) })));
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch services from MongoDB' });
   }
@@ -504,7 +506,8 @@ router.post('/generate', authenticate, async (req: AuthRequest, res: Response): 
       serviceName: sName,
       status: 'waiting',
       issuedAt: new Date(),
-      notes: notes || ''
+      notes: notes || '',
+      requiresBilling: Boolean(serviceInfo?.requiresBilling)
     });
 
     const metrics = await getQueueMetrics();
@@ -759,6 +762,17 @@ const handleCallNextToken = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
+    // Ensure requiresBilling reflects current service configuration
+    if (nextToken.requiresBilling === undefined) {
+      const srv = await ServiceModel.findOne({
+        $or: [{ code: nextToken.serviceId }, { id: nextToken.serviceId }, { name: nextToken.serviceName }]
+      });
+      if (srv) {
+        nextToken.requiresBilling = Boolean(srv.requiresBilling);
+        await nextToken.save();
+      }
+    }
+
     // Trigger notification: Token Called to Counter
     notifyTokenCalled({
       userId: String(nextToken.farmerId),
@@ -975,9 +989,36 @@ const handleCompleteToken = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
+    // If token is already completed (e.g. auto-completed via billing sale), treat as idempotent success
+    if (token.status === 'completed') {
+      res.json({ message: `Token ${token.tokenNumber} marked as Completed`, token });
+      return;
+    }
+
     if (!['called', 'serving', 'hold'].includes(token.status)) {
       res.status(400).json({ error: `Cannot complete token in '${token.status}' state.` });
       return;
+    }
+
+    // Check if billing is required for this token's service
+    let requiresBilling = token.requiresBilling;
+    if (requiresBilling === undefined) {
+      const srv = await ServiceModel.findOne({
+        $or: [{ code: token.serviceId }, { id: token.serviceId }, { name: token.serviceName }]
+      });
+      requiresBilling = Boolean(srv?.requiresBilling);
+    }
+
+    if (requiresBilling) {
+      const cleanTok = token.tokenNumber ? token.tokenNumber.trim().toUpperCase() : '';
+      const existingSale = await SaleModel.findOne({ tokenNumber: cleanTok });
+      if (!existingSale) {
+        res.status(400).json({
+          error: 'Billing is required. Complete billing first.',
+          requiresBilling: true
+        });
+        return;
+      }
     }
 
     token.status = 'completed';

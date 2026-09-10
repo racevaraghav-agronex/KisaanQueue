@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { wrapModel } from '../memoryDb.ts';
 
 export interface ISaleItem {
   productId: string;
@@ -65,8 +66,6 @@ const SaleSchema: Schema = new Schema({
   notes: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now }
 });
-
-import { wrapModel } from '../memoryDb.ts';
 
 const RawSaleModel: mongoose.Model<any> = mongoose.models.Sale
   ? (mongoose.models.Sale as mongoose.Model<any>)

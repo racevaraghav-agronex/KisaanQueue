@@ -436,7 +436,7 @@ router.get('/services', async (_req: AuthRequest, res: Response): Promise<void> 
   try {
     const services = await ServiceModel.find().sort({ name: 1 });
     if (services.length === 0) {
-      res.json(DEFAULT_SERVICES.map(s => ({ ...s, fee: 0, isActive: true })));
+      res.json(DEFAULT_SERVICES.map(s => ({ ...s, fee: 0, isActive: true, requiresBilling: Boolean((s as any).requiresBilling) })));
       return;
     }
     res.json(services);
@@ -448,7 +448,7 @@ router.get('/services', async (_req: AuthRequest, res: Response): Promise<void> 
 // Add service
 router.post('/services', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { name, code, description, averageMinutes, category, fee, isActive } = req.body;
+    const { name, code, description, averageMinutes, category, fee, isActive, requiresBilling } = req.body;
 
     if (!name || !name.trim()) {
       res.status(400).json({ error: 'Service name is required.' });
@@ -469,7 +469,8 @@ router.post('/services', async (req: AuthRequest, res: Response): Promise<void> 
       averageMinutes: Number(averageMinutes) > 0 ? Number(averageMinutes) : 10,
       category: category ? category.trim() : 'General',
       fee: Number(fee) >= 0 ? Number(fee) : 0,
-      isActive: isActive !== false
+      isActive: isActive !== false,
+      requiresBilling: Boolean(requiresBilling) || false
     });
 
     res.status(201).json({ message: 'Service created successfully', service });
@@ -482,7 +483,7 @@ router.post('/services', async (req: AuthRequest, res: Response): Promise<void> 
 router.put('/services/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { name, description, averageMinutes, category, fee, isActive } = req.body;
+    const { name, description, averageMinutes, category, fee, isActive, requiresBilling } = req.body;
 
     const service = await ServiceModel.findById(id);
     if (!service) {
@@ -498,6 +499,7 @@ router.put('/services/:id', async (req: AuthRequest, res: Response): Promise<voi
     if (category) service.category = category.trim();
     if (fee !== undefined && Number(fee) >= 0) service.fee = Number(fee);
     if (isActive !== undefined) service.isActive = Boolean(isActive);
+    if (requiresBilling !== undefined) service.requiresBilling = Boolean(requiresBilling);
 
     await service.save();
     res.json({ message: 'Service updated successfully', service });

@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { wrapModel } from '../memoryDb.ts';
 
 export interface ISlot extends Document {
   serviceId: string;
@@ -40,8 +41,6 @@ const SlotSchema: Schema = new Schema(
 // Compound index to guarantee uniqueness for a service's slot on a specific date
 SlotSchema.index({ serviceId: 1, date: 1, startTime: 1 }, { unique: true });
 SlotSchema.index({ date: 1, serviceId: 1 });
-
-import { wrapModel } from '../memoryDb.ts';
 
 const RawSlotModel: mongoose.Model<any> = mongoose.models.Slot
   ? (mongoose.models.Slot as mongoose.Model<any>)

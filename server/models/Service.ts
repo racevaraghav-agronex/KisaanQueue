@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { wrapModel } from '../memoryDb.ts';
 
 export interface IService extends Document {
   code: string;
@@ -8,6 +9,7 @@ export interface IService extends Document {
   category: string;
   fee: number;
   isActive: boolean;
+  requiresBilling?: boolean;
   slotDurationMinutes?: number;
   slotCapacity?: number;
   workingStartTime?: string;
@@ -22,13 +24,12 @@ const ServiceSchema: Schema = new Schema({
   category: { type: String, default: 'General', trim: true },
   fee: { type: Number, default: 0, min: 0 },
   isActive: { type: Boolean, default: true },
+  requiresBilling: { type: Boolean, default: false },
   slotDurationMinutes: { type: Number, default: 30, min: 5, max: 180 },
   slotCapacity: { type: Number, default: 10, min: 1, max: 100 },
   workingStartTime: { type: String, default: '09:00' },
   workingEndTime: { type: String, default: '17:00' }
 });
-
-import { wrapModel } from '../memoryDb.ts';
 
 const RawServiceModel: mongoose.Model<any> = mongoose.models.Service 
   ? (mongoose.models.Service as mongoose.Model<any>)

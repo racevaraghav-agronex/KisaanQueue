@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { wrapModel } from '../memoryDb.ts';
 
 export interface IPurchaseItem {
   productName: string;
@@ -39,8 +40,6 @@ const PurchaseSchema: Schema = new Schema({
   recordedBy: { type: String, required: true },
   createdAt: { type: Date, default: Date.now }
 });
-
-import { wrapModel } from '../memoryDb.ts';
 
 const RawPurchaseModel: mongoose.Model<any> = mongoose.models.Purchase
   ? (mongoose.models.Purchase as mongoose.Model<any>)

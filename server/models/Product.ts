@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { wrapModel } from '../memoryDb.ts';
 
 export interface IProduct extends Document {
   code: string;
@@ -49,8 +50,6 @@ ProductSchema.pre('save', function (this: any) {
   }
   this.updatedAt = new Date();
 });
-
-import { wrapModel } from '../memoryDb.ts';
 
 const RawProductModel: mongoose.Model<any> = mongoose.models.Product
   ? (mongoose.models.Product as mongoose.Model<any>)

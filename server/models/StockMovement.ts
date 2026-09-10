@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { wrapModel } from '../memoryDb.ts';
 
 export interface IStockMovement extends Document {
   productId: string;
@@ -29,8 +30,6 @@ const StockMovementSchema: Schema = new Schema({
   performedBy: { type: String, required: true },
   date: { type: Date, default: Date.now }
 });
-
-import { wrapModel } from '../memoryDb.ts';
 
 const RawStockMovementModel: mongoose.Model<any> = mongoose.models.StockMovement
   ? (mongoose.models.StockMovement as mongoose.Model<any>)

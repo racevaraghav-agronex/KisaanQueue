@@ -113,6 +113,14 @@ export const KrishiPosDesk: React.FC<KrishiPosDeskProps> = ({
       setFarmerPhone(currentServingToken.farmerPhone || '');
       setTokenNumber(currentServingToken.tokenNumber);
       setCustomerMode('token');
+    } else {
+      // Clear token-specific fields if we were in token mode
+      if (customerMode === 'token') {
+        setFarmerName('');
+        setFarmerPhone('');
+        setTokenNumber('');
+        setCustomerMode('walk_in');
+      }
     }
   }, [currentServingToken]);
 
@@ -845,12 +853,28 @@ export const KrishiPosDesk: React.FC<KrishiPosDeskProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-1">
-                  <div className="flex items-center space-x-1 text-xs">
-                    <span className="text-slate-400 font-medium">Token:</span>
-                    <span className="font-mono font-bold text-emerald-800 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
-                      {tokenNumber || 'Walk-in'}
-                    </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <div className="flex items-center space-x-1">
+                      <span className="text-slate-400 font-medium">Token:</span>
+                      <span className="font-mono font-bold text-emerald-800 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
+                        {tokenNumber || 'Walk-in'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center space-x-1">
+                      <span className="text-slate-400 font-medium">Service:</span>
+                      <span className="font-semibold text-slate-700 bg-white px-2 py-0.5 rounded-lg border border-slate-200 max-w-[140px] truncate" title={currentServingToken?.serviceName || (selectedQueueTokenId && waitingQueue.find(t => t._id === selectedQueueTokenId)?.serviceName) || 'General'}>
+                        {currentServingToken?.serviceName || (selectedQueueTokenId && waitingQueue.find(t => t._id === selectedQueueTokenId)?.serviceName) || 'Standard'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center space-x-1">
+                      <span className="text-slate-400 font-medium">Counter:</span>
+                      <span className="font-mono font-bold text-slate-700 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
+                        0{counterNumber}
+                      </span>
+                    </div>
                   </div>
 
                   {currentServingToken && (

@@ -28,6 +28,7 @@ export interface ServiceItem {
   category: string;
   fee?: number;
   isActive?: boolean;
+  requiresBilling?: boolean;
   slotDurationMinutes?: number;
   slotCapacity?: number;
   workingStartTime?: string;
@@ -71,6 +72,7 @@ export interface TokenItem {
   bookingReference?: string;
   slotString?: string;
   bookedDate?: string;
+  requiresBilling?: boolean;
 }
 
 export interface TokenVerificationResult {

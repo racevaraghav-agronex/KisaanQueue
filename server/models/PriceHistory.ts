@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { wrapModel } from '../memoryDb.ts';
 
 export interface IPriceHistory extends Document {
   productId: mongoose.Types.ObjectId | string;
@@ -19,8 +20,6 @@ const PriceHistorySchema: Schema = new Schema({
   changedBy: { type: String, required: true },
   changedAt: { type: Date, default: Date.now, index: true }
 });
-
-import { wrapModel } from '../memoryDb.ts';
 
 const RawPriceHistoryModel: mongoose.Model<any> = mongoose.models.PriceHistory
   ? (mongoose.models.PriceHistory as mongoose.Model<any>)

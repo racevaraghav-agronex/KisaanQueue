@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { wrapModel } from '../memoryDb.ts';
 
 export type BookingStatus = 'BOOKED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
 
@@ -66,8 +67,6 @@ BookingSchema.index({ farmerId: 1, date: 1, status: 1 });
 BookingSchema.index({ serviceId: 1, date: 1, startTime: 1, status: 1 });
 BookingSchema.index({ bookingReference: 1 });
 BookingSchema.index({ date: 1, status: 1 });
-
-import { wrapModel } from '../memoryDb.ts';
 
 const RawBookingModel: mongoose.Model<any> = mongoose.models.Booking
   ? (mongoose.models.Booking as mongoose.Model<any>)

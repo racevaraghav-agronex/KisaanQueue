@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { wrapModel } from '../memoryDb.ts';
 
 export interface IUser extends Document {
   name: string;
@@ -45,8 +46,6 @@ const UserSchema: Schema = new Schema({
 UserSchema.pre('save', function(this: any) {
   this.updatedAt = new Date();
 });
-
-import { wrapModel } from '../memoryDb.ts';
 
 const RawUserModel: mongoose.Model<any> = mongoose.models.User 
   ? (mongoose.models.User as mongoose.Model<any>)

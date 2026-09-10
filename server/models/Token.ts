@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { wrapModel } from '../memoryDb.ts';
 
 export interface IToken extends Document {
   tokenNumber: string;
@@ -25,6 +26,7 @@ export interface IToken extends Document {
   bookingReference?: string;
   slotString?: string;
   bookedDate?: string;
+  requiresBilling?: boolean;
 }
 
 const TokenSchema: Schema = new Schema({
@@ -52,13 +54,12 @@ const TokenSchema: Schema = new Schema({
   recallCount: { type: Number, default: 0 },
   completedAt: { type: Date },
   notes: { type: String, default: '' },
+  requiresBilling: { type: Boolean, default: false },
   bookingId: { type: Schema.Types.Mixed, default: null },
   bookingReference: { type: String, default: null },
   slotString: { type: String, default: null },
   bookedDate: { type: String, default: null }
 });
-
-import { wrapModel } from '../memoryDb.ts';
 
 const RawTokenModel: mongoose.Model<any> = mongoose.models.Token 
   ? (mongoose.models.Token as mongoose.Model<any>)

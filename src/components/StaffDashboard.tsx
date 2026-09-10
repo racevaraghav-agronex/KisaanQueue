@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useLanguage } from '../context/LanguageContext.tsx';
-import { TokenItem, ProductItem, SaleRecord, PurchaseRecord } from '../types.ts';
+import { TokenItem, ProductItem, SaleRecord, PurchaseRecord, ServiceItem } from '../types.ts';
 import { safeFetchJson } from '../utils/api.ts';
 import { SaleReceiptModal } from './SaleReceiptModal.tsx';
 import { KrishiPosDesk } from './pos/KrishiPosDesk.tsx';
@@ -44,7 +44,8 @@ import {
   MapPin,
   Tag,
   UserCheck,
-  Wheat
+  Wheat,
+  Receipt
 } from 'lucide-react';
 
 export const StaffDashboard: React.FC = () => {
@@ -56,6 +57,11 @@ export const StaffDashboard: React.FC = () => {
     (user as any)?.shiftStatus || 'active'
   );
   const [activeTab, setActiveTab] = useState<'queue' | 'sales' | 'history' | 'inventory' | 'purchases' | 'procurement'>('queue');
+
+  // Services Catalog & Billing State
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [showBillingRequiredModal, setShowBillingRequiredModal] = useState<boolean>(false);
+  const autoOpenedTokensRef = useRef<Set<string>>(new Set());
 
   // Operational Queue State
   const [currentServingToken, setCurrentServingToken] = useState<TokenItem | null>(null);
@@ -195,14 +201,15 @@ export const StaffDashboard: React.FC = () => {
     }
   };
 
-  // Fetch Inventory Products, Sales History, and Purchases
+  // Fetch Inventory Products, Sales History, Purchases, and Services Catalog
   const fetchInventoryData = async () => {
     try {
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-      const [prodRes, salesRes, purchRes] = await Promise.all([
+      const [prodRes, salesRes, purchRes, srvRes] = await Promise.all([
         safeFetchJson<ProductItem[]>('/api/inventory/products'),
         safeFetchJson<SaleRecord[]>('/api/inventory/sales', { headers }),
-        safeFetchJson<PurchaseRecord[]>('/api/inventory/purchases', { headers })
+        safeFetchJson<PurchaseRecord[]>('/api/inventory/purchases', { headers }),
+        safeFetchJson<ServiceItem[]>('/api/tokens/services')
       ]);
 
       if (prodRes.ok && Array.isArray(prodRes.data)) {
@@ -213,6 +220,9 @@ export const StaffDashboard: React.FC = () => {
       }
       if (purchRes.ok && Array.isArray(purchRes.data)) {
         setPurchases(purchRes.data);
+      }
+      if (srvRes.ok && Array.isArray(srvRes.data)) {
+        setServices(srvRes.data);
       }
     } catch (err) {
       console.warn('Notice: Inventory sync pending:', err);
@@ -271,6 +281,29 @@ export const StaffDashboard: React.FC = () => {
     }
   };
 
+  // ================= BILLING & SERVICE HELPERS =================
+  const checkRequiresBilling = (tokenItem: TokenItem | null): boolean => {
+    if (!tokenItem) return false;
+    if (tokenItem.requiresBilling === true) return true;
+    const matched = services.find(s =>
+      (s.code && tokenItem.serviceId && s.code.toUpperCase() === tokenItem.serviceId.toUpperCase()) ||
+      (s._id && tokenItem.serviceId && s._id === tokenItem.serviceId) ||
+      (s.id && tokenItem.serviceId && s.id === tokenItem.serviceId) ||
+      (s.name && tokenItem.serviceName && s.name.toLowerCase() === tokenItem.serviceName.toLowerCase())
+    );
+    return Boolean(matched?.requiresBilling);
+  };
+
+  const getCompletedSaleForToken = (tokNumber?: string): SaleRecord | undefined => {
+    if (!tokNumber) return undefined;
+    const clean = tokNumber.trim().toUpperCase();
+    return salesHistory.find(s => s.tokenNumber && s.tokenNumber.trim().toUpperCase() === clean);
+  };
+
+  const isTokenAlreadyBilled = (tokNumber?: string): boolean => {
+    return Boolean(getCompletedSaleForToken(tokNumber));
+  };
+
   // ================= 1. QUEUE CONTROLS =================
   const handleCallNext = async () => {
     if (!token) return;
@@ -314,10 +347,31 @@ export const StaffDashboard: React.FC = () => {
         setSaleFarmerPhone(called.farmerPhone || '');
         setSaleTokenNumber(called.tokenNumber);
 
-        setNotification({
-          type: 'success',
-          text: `Called token ${called.tokenNumber} (${called.farmerName}) to Counter ${counterNumber}.`
-        });
+        // Check if service requires billing
+        const needsBilling = called.requiresBilling ?? checkRequiresBilling(called);
+        const alreadyBilled = isTokenAlreadyBilled(called.tokenNumber);
+
+        if (needsBilling && !alreadyBilled) {
+          // Auto open billing only if not previously auto opened for this token
+          if (!autoOpenedTokensRef.current.has(called._id)) {
+            autoOpenedTokensRef.current.add(called._id);
+            setActiveTab('sales');
+            setNotification({
+              type: 'info',
+              text: `Auto-opened Billing for Token ${called.tokenNumber} (${called.serviceName || 'Service'} requires billing).`
+            });
+          }
+        } else if (needsBilling && alreadyBilled) {
+          setNotification({
+            type: 'info',
+            text: `Called token ${called.tokenNumber} (${called.farmerName}). Billing already completed.`
+          });
+        } else {
+          setNotification({
+            type: 'success',
+            text: `Called token ${called.tokenNumber} (${called.farmerName}) to Counter 0${counterNumber}.`
+          });
+        }
 
         playChime();
         announceToken(called.tokenNumber, counterNumber, called.farmerName);
@@ -419,6 +473,9 @@ export const StaffDashboard: React.FC = () => {
           text: `Token ${currentServingToken.tokenNumber} placed on HOLD. Counter 0${counterNumber} is now ready for the next farmer.`
         });
         setCurrentServingToken(null);
+        setSaleFarmerName('');
+        setSaleFarmerPhone('');
+        setSaleTokenNumber('');
         setShowHoldModal(false);
         setCustomHoldReason('');
         fetchQueueData();
@@ -491,9 +548,23 @@ export const StaffDashboard: React.FC = () => {
   const handleComplete = async () => {
     if (!token || !currentServingToken) return;
 
+    // Front-end validation: if service requires billing, verify that a bill has been created
+    const needsBilling = checkRequiresBilling(currentServingToken);
+    const alreadyBilled = isTokenAlreadyBilled(currentServingToken.tokenNumber);
+
+    if (needsBilling && !alreadyBilled) {
+      setNotification({
+        type: 'error',
+        text: 'Billing is required. Complete billing first.'
+      });
+      setShowCompleteModal(false);
+      setShowBillingRequiredModal(true);
+      return;
+    }
+
     setActionLoading(true);
     try {
-      const res = await safeFetchJson(`/api/tokens/${currentServingToken._id}/complete`, {
+      const res = await safeFetchJson<{ ok?: boolean; message?: string; error?: string; requiresBilling?: boolean }>(`/api/tokens/${currentServingToken._id}/complete`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -515,6 +586,10 @@ export const StaffDashboard: React.FC = () => {
         setSaleTokenNumber('');
         fetchQueueData();
       } else {
+        if (res.data?.requiresBilling) {
+          setShowCompleteModal(false);
+          setShowBillingRequiredModal(true);
+        }
         setNotification({ type: 'error', text: res.error || 'Failed to complete token.' });
       }
     } catch (err: any) {
@@ -544,6 +619,9 @@ export const StaffDashboard: React.FC = () => {
           text: `Token ${currentServingToken.tokenNumber} marked SKIPPED.`
         });
         setCurrentServingToken(null);
+        setSaleFarmerName('');
+        setSaleFarmerPhone('');
+        setSaleTokenNumber('');
         setShowSkipModal(false);
         fetchQueueData();
       } else {
@@ -1173,6 +1251,24 @@ export const StaffDashboard: React.FC = () => {
                           Ref: {currentServingToken.bookingReference}
                         </span>
                       )}
+                      {/* Service Billing Badge */}
+                      {checkRequiresBilling(currentServingToken) ? (
+                        isTokenAlreadyBilled(currentServingToken.tokenNumber) ? (
+                          <span className="bg-emerald-100 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-700" />
+                            Billing Completed ({getCompletedSaleForToken(currentServingToken.tokenNumber)?.invoiceNumber})
+                          </span>
+                        ) : (
+                          <span className="bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 animate-pulse">
+                            <Receipt className="w-3 h-3 text-amber-700" />
+                            Billing Required
+                          </span>
+                        )
+                      ) : (
+                        <span className="bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded text-[11px] font-medium">
+                          Billing Not Required
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -1187,16 +1283,60 @@ export const StaffDashboard: React.FC = () => {
                       <span>Recall Voice</span>
                     </button>
 
-                    <button
-                      onClick={handleLoadServingToBilling}
-                      className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-semibold flex items-center space-x-1.5 border border-emerald-300 cursor-pointer shadow-xs"
-                      title="Open Billing POS with farmer details loaded"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Open Billing</span>
-                    </button>
+                    {checkRequiresBilling(currentServingToken) && isTokenAlreadyBilled(currentServingToken.tokenNumber) ? (
+                      <button
+                        onClick={() => {
+                          const s = getCompletedSaleForToken(currentServingToken.tokenNumber);
+                          if (s) setSelectedReceiptSale(s);
+                        }}
+                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-semibold flex items-center space-x-1.5 border border-emerald-300 cursor-pointer shadow-xs"
+                        title="View completed bill receipt"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>View Receipt</span>
+                      </button>
+                    ) : checkRequiresBilling(currentServingToken) ? (
+                      <button
+                        onClick={handleLoadServingToBilling}
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 cursor-pointer shadow-xs animate-pulse"
+                        title="Open Billing POS with farmer details loaded (Billing Required)"
+                      >
+                        <Receipt className="w-3.5 h-3.5 text-white" />
+                        <span>Open Billing (Required)</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleLoadServingToBilling}
+                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-semibold flex items-center space-x-1.5 border border-emerald-300 cursor-pointer shadow-xs"
+                        title="Open Billing POS with farmer details loaded"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Open Billing</span>
+                      </button>
+                    )}
                   </div>
                 </div>
+
+                {/* Billing Required Prompt Banner if service requires billing and not yet billed */}
+                {checkRequiresBilling(currentServingToken) && !isTokenAlreadyBilled(currentServingToken.tokenNumber) && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+                    <div className="flex items-center space-x-2">
+                      <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                      <div>
+                        <span className="font-bold text-amber-950">Billing Required: </span>
+                        <span>This service requires completing POS billing before closing this token.</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleLoadServingToBilling}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs flex items-center space-x-1.5 cursor-pointer shrink-0 shadow-xs"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      <span>Open Billing POS</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Main Dynamic Operational Action Buttons */}
                 <div className="flex flex-wrap items-center gap-2.5 pt-1">
@@ -1216,7 +1356,17 @@ export const StaffDashboard: React.FC = () => {
                   {/* Complete Service Button */}
                   <button
                     id="staff-complete-btn"
-                    onClick={() => setShowCompleteModal(true)}
+                    onClick={() => {
+                      if (checkRequiresBilling(currentServingToken) && !isTokenAlreadyBilled(currentServingToken.tokenNumber)) {
+                        setNotification({
+                          type: 'error',
+                          text: 'Billing is required. Complete billing first.'
+                        });
+                        setShowBillingRequiredModal(true);
+                        return;
+                      }
+                      setShowCompleteModal(true);
+                    }}
                     disabled={actionLoading}
                     className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer"
                   >
@@ -2175,6 +2325,52 @@ export const StaffDashboard: React.FC = () => {
                 className="px-4 py-1.5 text-xs bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-lg cursor-pointer shadow-xs transition-colors"
               >
                 Mark Completed
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9b. Billing Required Alert Modal */}
+      {showBillingRequiredModal && currentServingToken && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-xl border border-amber-300 p-5 max-w-md w-full space-y-4 shadow-xl">
+            <div className="flex items-center space-x-2 text-amber-900">
+              <AlertCircle className="w-5 h-5 text-amber-600" />
+              <h3 className="text-sm font-bold">
+                Billing Required: Complete POS Bill First
+              </h3>
+            </div>
+            <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 space-y-1">
+              <p>
+                Service <strong>{currentServingToken.serviceName}</strong> is configured as <strong>Billing Required</strong>.
+              </p>
+              <p className="text-amber-800">
+                You cannot complete Token <strong>{currentServingToken.tokenNumber}</strong> until a sale bill is recorded in the POS system for this token.
+              </p>
+            </div>
+            <div className="text-xs text-slate-600">
+              Farmer: <strong className="text-slate-900">{currentServingToken.farmerName}</strong> • Counter: <strong className="text-slate-900">0{counterNumber}</strong>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowBillingRequiredModal(false)}
+                className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBillingRequiredModal(false);
+                  handleLoadServingToBilling();
+                }}
+                className="px-4 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg cursor-pointer shadow-xs transition-colors flex items-center space-x-1.5"
+              >
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>Open POS Billing Desk</span>
               </button>
             </div>
           </div>

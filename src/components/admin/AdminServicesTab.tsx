@@ -12,7 +12,8 @@ import {
   RotateCw, 
   X, 
   AlertCircle,
-  FolderTree
+  FolderTree,
+  Receipt
 } from 'lucide-react';
 
 interface AdminServicesTabProps {
@@ -33,6 +34,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({ token, onNot
   const [addDescription, setAddDescription] = useState('');
   const [addMinutes, setAddMinutes] = useState<number>(10);
   const [addFee, setAddFee] = useState<number>(0);
+  const [addRequiresBilling, setAddRequiresBilling] = useState<boolean>(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [submittingAdd, setSubmittingAdd] = useState(false);
 
@@ -44,6 +46,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({ token, onNot
   const [editMinutes, setEditMinutes] = useState<number>(10);
   const [editFee, setEditFee] = useState<number>(0);
   const [editIsActive, setEditIsActive] = useState<boolean>(true);
+  const [editRequiresBilling, setEditRequiresBilling] = useState<boolean>(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [submittingEdit, setSubmittingEdit] = useState(false);
 
@@ -96,7 +99,8 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({ token, onNot
           description: addDescription.trim(),
           averageMinutes: Number(addMinutes),
           fee: Number(addFee),
-          isActive: true
+          isActive: true,
+          requiresBilling: addRequiresBilling
         })
       });
 
@@ -108,6 +112,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({ token, onNot
         setAddDescription('');
         setAddMinutes(10);
         setAddFee(0);
+        setAddRequiresBilling(false);
         fetchServices();
       } else {
         setAddError(res.error || 'Failed to create service.');
@@ -144,7 +149,8 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({ token, onNot
           description: editDescription.trim(),
           averageMinutes: Number(editMinutes),
           fee: Number(editFee),
-          isActive: editIsActive
+          isActive: editIsActive,
+          requiresBilling: editRequiresBilling
         })
       });
 
@@ -274,6 +280,20 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({ token, onNot
                       <span>{srv.fee ? `₹${srv.fee}` : 'Free'}</span>
                     </div>
                   </div>
+
+                  <div className="mt-2 pt-2 border-t border-slate-50 flex items-center justify-between text-xs">
+                    <span className="text-[11px] font-medium text-slate-400">Billing:</span>
+                    {srv.requiresBilling ? (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                        <Receipt className="w-3 h-3 text-amber-600" />
+                        Required
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-500">
+                        Not Required
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-4 pt-3 flex gap-2">
@@ -286,6 +306,7 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({ token, onNot
                       setEditMinutes(srv.averageMinutes || 10);
                       setEditFee(srv.fee || 0);
                       setEditIsActive(srv.isActive !== false);
+                      setEditRequiresBilling(Boolean(srv.requiresBilling));
                       setEditError(null);
                     }}
                     className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors"
@@ -417,6 +438,21 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({ token, onNot
               </div>
 
               <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Billing Required</label>
+                <select
+                  value={addRequiresBilling ? 'yes' : 'no'}
+                  onChange={(e) => setAddRequiresBilling(e.target.value === 'yes')}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 focus:outline-none"
+                >
+                  <option value="no">No (Billing Optional / Not Required)</option>
+                  <option value="yes">Yes (Billing Required Before Completion)</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  When set to Yes, calling a token for this service automatically opens billing and requires POS bill completion.
+                </p>
+              </div>
+
+              <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Description</label>
                 <textarea
                   rows={2}
@@ -535,6 +571,21 @@ export const AdminServicesTab: React.FC<AdminServicesTabProps> = ({ token, onNot
                     <option value="inactive">Inactive</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Billing Required</label>
+                <select
+                  value={editRequiresBilling ? 'yes' : 'no'}
+                  onChange={(e) => setEditRequiresBilling(e.target.value === 'yes')}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 focus:outline-none"
+                >
+                  <option value="no">No (Billing Optional / Not Required)</option>
+                  <option value="yes">Yes (Billing Required Before Completion)</option>
+                </select>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  When set to Yes, calling a token for this service automatically opens billing and requires POS bill completion.
+                </p>
               </div>
 
               <div>
