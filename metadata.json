@@ -1,0 +1,6 @@
+{
+  "name": "Kisan Queue",
+  "description": "Comprehensive Krishi Seva Kendra queue management, farmer billing, inward purchase register, and stock inventory tracking system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
