@@ -5,6 +5,7 @@ import { ServiceModel, DEFAULT_SERVICES } from './models/Service.ts';
 import { ProductModel } from './models/Product.ts';
 import { PurchaseModel } from './models/Purchase.ts';
 import { StockMovementModel } from './models/StockMovement.ts';
+import { ComplaintModel } from './models/Complaint.ts';
 
 export interface DBStatus {
   connected: boolean;
@@ -446,6 +447,109 @@ async function seedMongoDatabase(): Promise<void> {
         });
       }
       console.log('[MongoDB Seed] Provisioned initial Purchase Register record and Stock Movements.');
+    }
+
+    // 4. Ensure sample Complaints exist in MongoDB for grievance analytics
+    const complaintCount = await ComplaintModel.countDocuments();
+    if (complaintCount === 0) {
+      const now = Date.now();
+      const SEED_COMPLAINTS = [
+        {
+          complaintNumber: 'CMP-2026-101',
+          farmerId: '6aa2b7d5fd03c9db8a7dfc5d',
+          farmerName: 'Ramesh Patel',
+          farmerPhone: '9876543210',
+          category: 'Fertilizer & Seed Stock',
+          subject: 'Neem Coated Urea allocation for wheat sowing',
+          description: 'Needed 5 bags of Urea for Rabi crop; requested stock allocation status update.',
+          status: 'resolved',
+          priority: 'medium',
+          rating: 5,
+          feedback: 'Counter officer verified quota and provided timely stock token.',
+          assignedStaffName: 'Ramesh Kumar (Staff Counter 1)',
+          resolutionNotes: 'Issued token and fulfilled fertilizer quota at Counter 1 POS.',
+          resolvedAt: new Date(now - 1 * 86400000),
+          createdAt: new Date(now - 3 * 86400000)
+        },
+        {
+          complaintNumber: 'CMP-2026-102',
+          farmerId: '6a9e52481cd0d2521eba92a1',
+          farmerName: 'Jatin',
+          farmerPhone: '8172921216',
+          category: 'Token & Queue Delay',
+          subject: 'Morning peak queue delay for Soil Health Card',
+          description: 'Long waiting time during 10 AM morning slot before token was called.',
+          status: 'resolved',
+          priority: 'high',
+          rating: 4,
+          feedback: 'Additional staff was assigned to speed up sample collection.',
+          assignedStaffName: 'staff1',
+          resolutionNotes: 'Sample intake streamlined and expedited at Counter 2.',
+          resolvedAt: new Date(now - 1 * 86400000),
+          createdAt: new Date(now - 2 * 86400000)
+        },
+        {
+          complaintNumber: 'CMP-2026-103',
+          farmerId: '6a9d8404a5d2dee1f6fb8c31',
+          farmerName: 'aman',
+          farmerPhone: '8382946740',
+          category: 'Procurement Weighment',
+          subject: 'Weighbridge tare calculation verification',
+          description: 'Trolley tare weight clarification requested for net quintal calculation.',
+          status: 'resolved',
+          priority: 'high',
+          rating: 5,
+          feedback: 'Digital weighbridge slip re-verified and matched perfectly.',
+          assignedStaffName: 'Ramesh Kumar (Staff Counter 1)',
+          resolutionNotes: 'Re-weighed empty tractor trolley; slip WB-8839 confirmed accurate.',
+          resolvedAt: new Date(now - 12 * 3600000),
+          createdAt: new Date(now - 1 * 86400000)
+        },
+        {
+          complaintNumber: 'CMP-2026-104',
+          farmerId: '6aa2b7d5fd03c9db8a7dfc5d',
+          farmerName: 'Ramesh Patel',
+          farmerPhone: '9876543210',
+          category: 'Payment Discrepancy',
+          subject: 'MSP direct procurement bank credit SMS alert',
+          description: 'Direct Kendra Transfer completed but bank SMS was delayed by telecom provider.',
+          status: 'in_progress',
+          priority: 'medium',
+          rating: 4,
+          feedback: 'Staff checked DBT transaction reference TXN-KENDRA-998811.',
+          assignedStaffName: 'Ramesh Kumar (Staff Counter 1)',
+          resolutionNotes: 'UTR status confirmed with state clearing house; awaiting bank webhook.',
+          createdAt: new Date(now - 6 * 3600000)
+        },
+        {
+          complaintNumber: 'CMP-2026-105',
+          farmerId: '6a9e52481cd0d2521eba92a1',
+          farmerName: 'Jatin',
+          farmerPhone: '8172921216',
+          category: 'Soil Health Card',
+          subject: 'Soil test report micronutrient dosage clarification',
+          description: 'Need agriculture specialist consultation on Zinc Sulphate application dosage.',
+          status: 'open',
+          priority: 'low',
+          assignedStaffName: 'staff1',
+          createdAt: new Date(now - 3 * 3600000)
+        },
+        {
+          complaintNumber: 'CMP-2026-106',
+          farmerId: '6a9d8404a5d2dee1f6fb8c31',
+          farmerName: 'aman',
+          farmerPhone: '8382946740',
+          category: 'Staff Assistance',
+          subject: 'Assistance for online PMFBY crop insurance land record sync',
+          description: 'Need help linking Khasra and Khatauni land registry with PMFBY portal.',
+          status: 'open',
+          priority: 'medium',
+          createdAt: new Date(now - 1 * 3600000)
+        }
+      ];
+
+      await ComplaintModel.insertMany(SEED_COMPLAINTS);
+      console.log(`[MongoDB Seed] Provisioned ${SEED_COMPLAINTS.length} initial farmer complaints for grievance analytics.`);
     }
   } catch (err) {
     console.error('[MongoDB Seed] Error during data seeding:', err);

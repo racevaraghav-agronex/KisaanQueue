@@ -11,6 +11,7 @@ import { QrCodeView } from './QrCodeView.tsx';
 import { TokenVerifyModal } from './TokenVerifyModal.tsx';
 import { FarmerProcurementSection } from './FarmerProcurementSection.tsx';
 import { FarmerNotificationsTab } from './FarmerNotificationsTab.tsx';
+import { FarmerChat } from './farmer/FarmerChat.tsx';
 import { useNotifications } from '../context/NotificationContext.tsx';
 import { 
   RefreshCw,
@@ -31,7 +32,9 @@ import {
   QrCode,
   Wheat,
   ShoppingBag,
-  Bell
+  Bell,
+  Bot,
+  Sparkles
 } from 'lucide-react';
 
 interface FarmerDashboardProps {
@@ -85,7 +88,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ services, pres
   const [receiptToken, setReceiptToken] = useState<TokenItem | null>(null);
   const [receiptSale, setReceiptSale] = useState<SaleRecord | null>(null);
   const [verifyReference, setVerifyReference] = useState<string | null>(null);
-  const [activeMainTab, setActiveMainTab] = useState<'queue' | 'procurement' | 'purchases' | 'notifications'>('queue');
+  const [activeMainTab, setActiveMainTab] = useState<'queue' | 'procurement' | 'purchases' | 'notifications' | 'assistant'>('queue');
   const { unreadCount } = useNotifications();
 
   // Auto-detect ?verify= in URL if user opened scanned QR link
@@ -351,6 +354,18 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ services, pres
         {/* Primary Slot Booking & Quick Action Buttons */}
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setActiveMainTab('assistant')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
+              activeMainTab === 'assistant'
+                ? 'bg-emerald-900 text-white shadow-xs ring-2 ring-emerald-500'
+                : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-300/80 shadow-2xs'
+            }`}
+          >
+            <Bot className="w-4 h-4 text-emerald-700" />
+            <span>Kisan AI Assistant</span>
+          </button>
+
+          <button
             onClick={() => setShowSlotBookingModal(true)}
             className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs transition-all cursor-pointer"
           >
@@ -454,6 +469,22 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ services, pres
               {unreadCount}
             </span>
           )}
+        </button>
+
+        <button
+          id="farmer-ai-tab-btn"
+          onClick={() => setActiveMainTab('assistant')}
+          className={`px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center space-x-2 whitespace-nowrap ${
+            activeMainTab === 'assistant'
+              ? 'bg-white text-emerald-950 font-bold shadow-sm border border-emerald-600/30 ring-2 ring-emerald-600/20'
+              : 'text-emerald-900 bg-emerald-100/60 hover:text-emerald-950 hover:bg-white/80'
+          }`}
+        >
+          <Bot className="w-4 h-4 text-emerald-700" />
+          <span>Kisan AI Assistant (किसान मित्र)</span>
+          <span className="ml-1 bg-emerald-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm">
+            AI
+          </span>
         </button>
       </div>
 
@@ -1124,6 +1155,10 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ services, pres
 
   {activeMainTab === 'notifications' && (
     <FarmerNotificationsTab />
+  )}
+
+  {activeMainTab === 'assistant' && (
+    <FarmerChat onNavigateToTab={(tab) => setActiveMainTab(tab)} />
   )}
 
       {/* Book Service Slot Modal */}

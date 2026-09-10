@@ -13,8 +13,10 @@ import { AdminSalesTab } from './admin/AdminSalesTab.tsx';
 import { AdminPaymentsTab } from './admin/AdminPaymentsTab.tsx';
 import { AdminReportsTab } from './admin/AdminReportsTab.tsx';
 import { AdminProcurementTab } from './admin/AdminProcurementTab.tsx';
+import { AdminAnalyticsTab } from './admin/AdminAnalyticsTab.tsx';
 import { 
   LayoutDashboard,
+  BarChart3,
   Users,
   Tractor,
   Layers,
@@ -38,6 +40,7 @@ import {
 
 export type AdminTab = 
   | 'dashboard'
+  | 'analytics'
   | 'staff'
   | 'farmers'
   | 'services'
@@ -115,6 +118,7 @@ export const AdminDashboard: React.FC = () => {
 
   const navTabs: Array<{ id: AdminTab; label: string; icon: any; badge?: number | string }> = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'staff', label: 'Staff', icon: Users, badge: stats?.totalStaff },
     { id: 'farmers', label: 'Farmers', icon: Tractor, badge: stats?.totalFarmers },
     { id: 'services', label: 'Services', icon: Layers },
@@ -323,6 +327,22 @@ export const AdminDashboard: React.FC = () => {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <button
+                  onClick={() => setActiveTab('analytics')}
+                  className="p-4 rounded-2xl bg-emerald-50/70 hover:bg-emerald-100/70 border border-emerald-200 hover:border-emerald-400 text-left transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-xs">
+                      <BarChart3 className="w-4 h-4" />
+                    </span>
+                    <ArrowRight className="w-4 h-4 text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                  <h4 className="font-bold text-slate-900 text-xs mt-3">Analytics & Intelligence</h4>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    Live operational metrics, queue waiting times, peak hours, procurement, and sales trends.
+                  </p>
+                </button>
+
+                <button
                   onClick={() => setActiveTab('staff')}
                   className="p-4 rounded-2xl bg-slate-50 hover:bg-emerald-50/50 border border-slate-200 hover:border-emerald-300 text-left transition-all cursor-pointer group"
                 >
@@ -449,6 +469,12 @@ export const AdminDashboard: React.FC = () => {
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === 'analytics' && (
+          <ErrorBoundary fallbackTitle="Analytics & Intelligence Error" fallbackMessage="An error occurred while loading analytics. Click retry to refresh.">
+            <AdminAnalyticsTab token={token || ''} onNotification={showNotification} />
+          </ErrorBoundary>
         )}
 
         {activeTab === 'staff' && (

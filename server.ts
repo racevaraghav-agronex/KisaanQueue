@@ -10,6 +10,8 @@ import inventoryRoutes from './server/routes/inventory.ts';
 import slotsRoutes from './server/routes/slots.ts';
 import procurementRoutes from './server/routes/procurement.ts';
 import notificationRoutes from './server/routes/notifications.ts';
+import aiRoutes from './server/routes/ai.ts';
+import analyticsRoutes from './server/routes/analytics.ts';
 
 // Load environment variables from .env
 dotenv.config();
@@ -67,12 +69,14 @@ async function startServer() {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/tokens', tokenRoutes);
+  app.use('/api/admin', analyticsRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/inventory', inventoryRoutes);
   app.use('/api/slots', slotsRoutes);
   app.use('/api/bookings', slotsRoutes);
   app.use('/api/procurement', procurementRoutes);
   app.use('/api/notifications', notificationRoutes);
+  app.use('/api/ai', aiRoutes);
   app.use('/api', slotsRoutes);
 
   // Direct shortcuts for convenience
