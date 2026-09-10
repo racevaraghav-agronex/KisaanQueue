@@ -28,9 +28,13 @@ const ServiceSchema: Schema = new Schema({
   workingEndTime: { type: String, default: '17:00' }
 });
 
-export const ServiceModel: mongoose.Model<any> = mongoose.models.Service 
+import { wrapModel } from '../memoryDb.ts';
+
+const RawServiceModel: mongoose.Model<any> = mongoose.models.Service 
   ? (mongoose.models.Service as mongoose.Model<any>)
   : mongoose.model('Service', ServiceSchema);
+
+export const ServiceModel: mongoose.Model<any> = wrapModel('Service', RawServiceModel);
 
 
 export const DEFAULT_SERVICES = [

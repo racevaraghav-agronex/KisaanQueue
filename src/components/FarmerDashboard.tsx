@@ -9,6 +9,9 @@ import { RescheduleBookingModal } from './RescheduleBookingModal.tsx';
 import { BookingSlipModal } from './BookingSlipModal.tsx';
 import { QrCodeView } from './QrCodeView.tsx';
 import { TokenVerifyModal } from './TokenVerifyModal.tsx';
+import { FarmerProcurementSection } from './FarmerProcurementSection.tsx';
+import { FarmerNotificationsTab } from './FarmerNotificationsTab.tsx';
+import { useNotifications } from '../context/NotificationContext.tsx';
 import { 
   RefreshCw,
   Printer,
@@ -25,7 +28,10 @@ import {
   ChevronRight,
   ShieldCheck,
   RotateCcw,
-  QrCode
+  QrCode,
+  Wheat,
+  ShoppingBag,
+  Bell
 } from 'lucide-react';
 
 interface FarmerDashboardProps {
@@ -79,6 +85,8 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ services, pres
   const [receiptToken, setReceiptToken] = useState<TokenItem | null>(null);
   const [receiptSale, setReceiptSale] = useState<SaleRecord | null>(null);
   const [verifyReference, setVerifyReference] = useState<string | null>(null);
+  const [activeMainTab, setActiveMainTab] = useState<'queue' | 'procurement' | 'purchases' | 'notifications'>('queue');
+  const { unreadCount } = useNotifications();
 
   // Auto-detect ?verify= in URL if user opened scanned QR link
   useEffect(() => {
@@ -379,7 +387,79 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ services, pres
         </div>
       )}
 
-      {/* 2. UPCOMING APPOINTMENT BANNER (IF FARMER HAS A BOOKING) */}
+      {/* FARMER DESK SUB-NAVIGATION TABS */}
+      <div className="flex border-b border-slate-200 text-xs font-semibold overflow-x-auto bg-slate-100/90 rounded-2xl p-1.5 space-x-1.5 shadow-inner">
+        <button
+          onClick={() => setActiveMainTab('queue')}
+          className={`px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center space-x-2 whitespace-nowrap ${
+            activeMainTab === 'queue'
+              ? 'bg-white text-emerald-950 font-bold shadow-sm border border-slate-200/90 ring-1 ring-emerald-500/10'
+              : 'text-slate-600 hover:text-slate-950 hover:bg-white/60'
+          }`}
+        >
+          <Ticket className="w-4 h-4 text-emerald-600" />
+          <span>Queue & Appointments</span>
+          {activeToken && (
+            <span className="ml-1 bg-emerald-100 text-emerald-900 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+              Active: {activeToken.tokenNumber}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveMainTab('procurement')}
+          className={`px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center space-x-2 whitespace-nowrap ${
+            activeMainTab === 'procurement'
+              ? 'bg-white text-emerald-950 font-bold shadow-sm border border-slate-200/90 ring-1 ring-emerald-500/10'
+              : 'text-slate-600 hover:text-slate-950 hover:bg-white/60'
+          }`}
+        >
+          <Wheat className="w-4 h-4 text-emerald-600" />
+          <span>Produce Procurement & Weighment</span>
+          <span className="ml-1 bg-emerald-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm">
+            Phase 4
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveMainTab('purchases')}
+          className={`px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center space-x-2 whitespace-nowrap ${
+            activeMainTab === 'purchases'
+              ? 'bg-white text-emerald-950 font-bold shadow-sm border border-slate-200/90 ring-1 ring-emerald-500/10'
+              : 'text-slate-600 hover:text-slate-950 hover:bg-white/60'
+          }`}
+        >
+          <ShoppingBag className="w-4 h-4 text-emerald-600" />
+          <span>Purchase Bills</span>
+          {purchases.length > 0 && (
+            <span className="ml-1 bg-slate-200 text-slate-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+              {purchases.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          id="farmer-notifs-tab-btn"
+          onClick={() => setActiveMainTab('notifications')}
+          className={`px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center space-x-2 whitespace-nowrap ${
+            activeMainTab === 'notifications'
+              ? 'bg-white text-emerald-950 font-bold shadow-sm border border-slate-200/90 ring-1 ring-emerald-500/10'
+              : 'text-slate-600 hover:text-slate-950 hover:bg-white/60'
+          }`}
+        >
+          <Bell className="w-4 h-4 text-emerald-600" />
+          <span>Alerts & Notifications</span>
+          {unreadCount > 0 && (
+            <span className="ml-1 bg-rose-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeMainTab === 'queue' && (
+        <div className="space-y-6">
+          {/* 2. UPCOMING APPOINTMENT BANNER (IF FARMER HAS A BOOKING) */}
       {nextAppointment && (
         <div className="bg-gradient-to-r from-emerald-900 to-emerald-800 text-white rounded-2xl p-5 sm:p-6 shadow-md space-y-4">
           <div className="flex items-center justify-between border-b border-emerald-700/60 pb-3">
@@ -958,75 +1038,93 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ services, pres
           </div>
         )}
       </div>
+    </div>
+  )}
 
-      {/* 6. RECENT PURCHASES TABLE */}
-      <div className="bg-white rounded-xl border border-slate-300 p-5 shadow-xs space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-          <h2 className="text-sm font-bold text-slate-900">
-            Recent Purchases
-          </h2>
-          <span className="text-xs text-slate-400">
-            {purchases.length} invoices
-          </span>
-        </div>
+  {/* ================= FARMER PROCUREMENT WORKFLOW (PHASE 4) ================= */}
+  {activeMainTab === 'procurement' && (
+    <FarmerProcurementSection
+      token={token || ''}
+      user={user}
+      activeBookingRef={nextAppointment?.bookingReference}
+      activeTokenNumber={activeToken?.tokenNumber}
+    />
+  )}
 
-        {purchases.length === 0 ? (
-          <p className="text-xs text-slate-500 py-3">
-            No purchases recorded yet for your account.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-500 font-semibold bg-slate-50/70">
-                  <th className="py-2 px-3">Invoice</th>
-                  <th className="py-2 px-3">Date</th>
-                  <th className="py-2 px-3">Items Purchased</th>
-                  <th className="py-2 px-3 text-right">Total Amount</th>
-                  <th className="py-2 px-3">Payment</th>
-                  <th className="py-2 px-3 text-right">Bill / Receipt</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {purchases.map((sale, idx) => (
-                  <tr key={sale._id || sale.invoiceNumber || `sale-${idx}`} className="hover:bg-slate-50/50">
-                    <td className="py-2.5 px-3 font-mono font-semibold text-slate-800">
-                      {sale.invoiceNumber}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-500">
-                      {new Date(sale.date).toLocaleDateString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric'
-                      })}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-700">
-                      {sale.items.map(i => `${i.productName} (x${i.quantity})`).join(', ')}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                      ₹{sale.total.toLocaleString('en-IN')}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-600">
-                      <span className="bg-slate-100 px-2 py-0.5 rounded text-[10px]">
-                        {sale.paymentMethod || 'Cash'}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-right">
-                      <button
-                        onClick={() => setReceiptSale(sale)}
-                        className="text-emerald-800 hover:text-emerald-950 font-semibold hover:underline cursor-pointer inline-flex items-center space-x-1"
-                      >
-                        <Printer className="w-3 h-3" />
-                        <span>Bill</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+  {/* ================= PURCHASES BILLS TAB ================= */}
+  {activeMainTab === 'purchases' && (
+    <div className="bg-white rounded-xl border border-slate-300 p-5 shadow-xs space-y-3">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+        <h2 className="text-sm font-bold text-slate-900">
+          Recent Purchases & Agro Bills
+        </h2>
+        <span className="text-xs text-slate-400">
+          {purchases.length} invoices
+        </span>
       </div>
+
+      {purchases.length === 0 ? (
+        <p className="text-xs text-slate-500 py-6 text-center">
+          No purchase invoices recorded yet for your account.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-500 font-semibold bg-slate-50/70">
+                <th className="py-2 px-3">Invoice</th>
+                <th className="py-2 px-3">Date</th>
+                <th className="py-2 px-3">Items Purchased</th>
+                <th className="py-2 px-3 text-right">Total Amount</th>
+                <th className="py-2 px-3">Payment</th>
+                <th className="py-2 px-3 text-right">Bill / Receipt</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {purchases.map((sale, idx) => (
+                <tr key={sale._id || sale.invoiceNumber || `sale-${idx}`} className="hover:bg-slate-50/50">
+                  <td className="py-2.5 px-3 font-mono font-semibold text-slate-800">
+                    {sale.invoiceNumber}
+                  </td>
+                  <td className="py-2.5 px-3 text-slate-500">
+                    {new Date(sale.date).toLocaleDateString('en-IN', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric'
+                    })}
+                  </td>
+                  <td className="py-2.5 px-3 text-slate-700">
+                    {sale.items.map(i => `${i.productName} (x${i.quantity})`).join(', ')}
+                  </td>
+                  <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
+                    ₹{sale.total.toLocaleString('en-IN')}
+                  </td>
+                  <td className="py-2.5 px-3 text-slate-600">
+                    <span className="bg-slate-100 px-2 py-0.5 rounded text-[10px]">
+                      {sale.paymentMethod || 'Cash'}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3 text-right">
+                    <button
+                      onClick={() => setReceiptSale(sale)}
+                      className="text-emerald-800 hover:text-emerald-950 font-semibold hover:underline cursor-pointer inline-flex items-center space-x-1"
+                    >
+                      <Printer className="w-3 h-3" />
+                      <span>Bill</span>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )}
+
+  {activeMainTab === 'notifications' && (
+    <FarmerNotificationsTab />
+  )}
 
       {/* Book Service Slot Modal */}
       {showSlotBookingModal && (

@@ -12,6 +12,7 @@ import { AdminQueueTab } from './admin/AdminQueueTab.tsx';
 import { AdminSalesTab } from './admin/AdminSalesTab.tsx';
 import { AdminPaymentsTab } from './admin/AdminPaymentsTab.tsx';
 import { AdminReportsTab } from './admin/AdminReportsTab.tsx';
+import { AdminProcurementTab } from './admin/AdminProcurementTab.tsx';
 import { 
   LayoutDashboard,
   Users,
@@ -31,7 +32,8 @@ import {
   Monitor,
   ArrowRight,
   Database,
-  Sparkles
+  Sparkles,
+  Wheat
 } from 'lucide-react';
 
 export type AdminTab = 
@@ -45,6 +47,7 @@ export type AdminTab =
   | 'queue'
   | 'sales'
   | 'payments'
+  | 'procurement'
   | 'reports';
 
 interface AdminStats {
@@ -121,6 +124,7 @@ export const AdminDashboard: React.FC = () => {
     { id: 'queue', label: 'Queue', icon: Clock, badge: stats?.waitingTokens ? `${stats.waitingTokens} waiting` : undefined },
     { id: 'sales', label: 'Sales', icon: Receipt },
     { id: 'payments', label: 'Payments', icon: CreditCard },
+    { id: 'procurement', label: 'Procurement (Phase 4)', icon: Wheat },
     { id: 'reports', label: 'Reports', icon: FileText }
   ];
 
@@ -498,6 +502,12 @@ export const AdminDashboard: React.FC = () => {
         {activeTab === 'payments' && (
           <ErrorBoundary fallbackTitle="Payments Settlement Error" fallbackMessage="An error occurred while loading payments. Click retry to refresh.">
             <AdminPaymentsTab token={token || ''} onNotification={showNotification} />
+          </ErrorBoundary>
+        )}
+
+        {activeTab === 'procurement' && (
+          <ErrorBoundary fallbackTitle="Farmer Procurement Error" fallbackMessage="An error occurred while loading the procurement desk. Click retry to refresh.">
+            <AdminProcurementTab token={token || ''} onNotification={showNotification} />
           </ErrorBoundary>
         )}
 

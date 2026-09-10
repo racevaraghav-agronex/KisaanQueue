@@ -66,6 +66,10 @@ const SaleSchema: Schema = new Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-export const SaleModel: mongoose.Model<any> = mongoose.models.Sale
+import { wrapModel } from '../memoryDb.ts';
+
+const RawSaleModel: mongoose.Model<any> = mongoose.models.Sale
   ? (mongoose.models.Sale as mongoose.Model<any>)
   : mongoose.model('Sale', SaleSchema);
+
+export const SaleModel: mongoose.Model<any> = wrapModel('Sale', RawSaleModel);

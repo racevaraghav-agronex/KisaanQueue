@@ -50,6 +50,10 @@ ProductSchema.pre('save', function (this: any) {
   this.updatedAt = new Date();
 });
 
-export const ProductModel: mongoose.Model<any> = mongoose.models.Product
+import { wrapModel } from '../memoryDb.ts';
+
+const RawProductModel: mongoose.Model<any> = mongoose.models.Product
   ? (mongoose.models.Product as mongoose.Model<any>)
   : mongoose.model('Product', ProductSchema);
+
+export const ProductModel: mongoose.Model<any> = wrapModel('Product', RawProductModel);

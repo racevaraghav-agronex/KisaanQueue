@@ -6,6 +6,13 @@ import { ServiceModel, DEFAULT_SERVICES } from '../models/Service.ts';
 import { BookingModel } from '../models/Booking.ts';
 import { dbStatus } from '../db.ts';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth.ts';
+import {
+  notifyTokenBooked,
+  notifyTokenApproaching,
+  notifyTokenCalled,
+  notifyTokenCompleted,
+  notifyTokenCancelled
+} from '../utils/notificationService.ts';
 
 const router = Router();
 
@@ -510,6 +517,16 @@ router.post('/generate', authenticate, async (req: AuthRequest, res: Response): 
       tokenStatus: 'waiting'
     });
 
+    // Notify farmer: Token Booked
+    notifyTokenBooked({
+      userId: String(user._id),
+      userPhone: user.phone,
+      tokenNumber: newToken.tokenNumber,
+      serviceName: newToken.serviceName,
+      estimatedWaitMinutes: queueInfo.estimatedWaitMinutes,
+      positionInQueue: queueInfo.positionInQueue
+    }).catch(err => console.warn('Notification trigger error:', err));
+
     res.status(201).json({
       message: 'Token issued and saved in MongoDB',
       token: {
@@ -655,6 +672,16 @@ const handleCancelToken = async (req: AuthRequest, res: Response): Promise<void>
     token.status = 'cancelled';
     token.completedAt = new Date();
     await token.save();
+
+    // Trigger notification: Token Cancelled
+    notifyTokenCancelled({
+      userId: String(token.farmerId),
+      userPhone: token.farmerPhone,
+      tokenNumber: token.tokenNumber,
+      serviceName: token.serviceName,
+      reason: 'Cancelled by farmer'
+    }).catch(() => {});
+
     res.json({ message: 'Token cancelled successfully in MongoDB', token });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to cancel token' });
@@ -732,6 +759,39 @@ const handleCallNextToken = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
+    // Trigger notification: Token Called to Counter
+    notifyTokenCalled({
+      userId: String(nextToken.farmerId),
+      userPhone: nextToken.farmerPhone,
+      tokenNumber: nextToken.tokenNumber,
+      counterNumber,
+      serviceName: nextToken.serviceName,
+      staffName: staff.name
+    }).catch(() => {});
+
+    // Check subsequent waiting tokens to notify that their turn is approaching
+    TokenModel.find({
+      status: 'waiting',
+      $or: [{ centre: targetCentre }, { centre: { $exists: false } }, { centre: null }]
+    })
+      .sort({ sequence: 1 })
+      .limit(2)
+      .then(upcoming => {
+        if (upcoming && upcoming.length > 0) {
+          upcoming.forEach((upToken: any, idx: number) => {
+            notifyTokenApproaching({
+              userId: String(upToken.farmerId),
+              userPhone: upToken.farmerPhone,
+              tokenNumber: upToken.tokenNumber,
+              serviceName: upToken.serviceName,
+              peopleAhead: idx + 1,
+              counterNumber
+            }).catch(() => {});
+          });
+        }
+      })
+      .catch(() => {});
+
     res.json({
       message: `Token ${nextToken.tokenNumber} called to Counter ${counterNumber}`,
       token: nextToken
@@ -769,6 +829,16 @@ const handleRecallToken = async (req: AuthRequest, res: Response): Promise<void>
     token.staffName = staff.name;
     token.recallCount = (token.recallCount || 0) + 1;
     await token.save();
+
+    // Trigger notification: Token Recalled
+    notifyTokenCalled({
+      userId: String(token.farmerId),
+      userPhone: token.farmerPhone,
+      tokenNumber: token.tokenNumber,
+      counterNumber,
+      serviceName: token.serviceName,
+      staffName: staff.name
+    }).catch(() => {});
 
     res.json({
       message: `Token ${token.tokenNumber} recalled to Counter ${counterNumber} (Call #${token.recallCount})`,
@@ -915,6 +985,15 @@ const handleCompleteToken = async (req: AuthRequest, res: Response): Promise<voi
     if (notes) token.notes = notes;
     await token.save();
 
+    // Trigger notification: Token Completed
+    notifyTokenCompleted({
+      userId: String(token.farmerId),
+      userPhone: token.farmerPhone,
+      tokenNumber: token.tokenNumber,
+      serviceName: token.serviceName,
+      counterNumber: token.counterNumber
+    }).catch(() => {});
+
     res.json({ message: `Token ${token.tokenNumber} marked as Completed`, token });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to complete token in MongoDB' });
@@ -946,6 +1025,15 @@ const handleSkipToken = async (req: AuthRequest, res: Response): Promise<void> =
     token.completedAt = new Date();
     token.notes = reason || 'Farmer did not report after multiple announcements.';
     await token.save();
+
+    // Trigger notification: Token Skipped
+    notifyTokenCancelled({
+      userId: String(token.farmerId),
+      userPhone: token.farmerPhone,
+      tokenNumber: token.tokenNumber,
+      serviceName: token.serviceName,
+      reason: token.notes
+    }).catch(() => {});
 
     res.json({ message: `Token ${token.tokenNumber} skipped: ${token.notes}`, token });
   } catch (err: any) {

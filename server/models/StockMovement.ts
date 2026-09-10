@@ -30,6 +30,10 @@ const StockMovementSchema: Schema = new Schema({
   date: { type: Date, default: Date.now }
 });
 
-export const StockMovementModel: mongoose.Model<any> = mongoose.models.StockMovement
+import { wrapModel } from '../memoryDb.ts';
+
+const RawStockMovementModel: mongoose.Model<any> = mongoose.models.StockMovement
   ? (mongoose.models.StockMovement as mongoose.Model<any>)
   : mongoose.model('StockMovement', StockMovementSchema);
+
+export const StockMovementModel: mongoose.Model<any> = wrapModel('StockMovement', RawStockMovementModel);

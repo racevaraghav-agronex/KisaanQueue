@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useLanguage } from '../context/LanguageContext.tsx';
 import { LanguageSelector } from './LanguageSelector.tsx';
+import { NotificationBell } from './NotificationBell.tsx';
 import { Sprout, Monitor, LogOut, LogIn, UserPlus, Sparkles, UserCheck } from 'lucide-react';
 
 interface NavbarProps {
@@ -127,6 +128,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           {user ? (
             /* Logged In State */
             <div className="flex items-center gap-2.5">
+              <NotificationBell />
+
               <button
                 onClick={() => setCurrentView('dashboard')}
                 className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer shadow-xs ${

@@ -20,6 +20,10 @@ const PriceHistorySchema: Schema = new Schema({
   changedAt: { type: Date, default: Date.now, index: true }
 });
 
-export const PriceHistoryModel: mongoose.Model<any> = mongoose.models.PriceHistory
+import { wrapModel } from '../memoryDb.ts';
+
+const RawPriceHistoryModel: mongoose.Model<any> = mongoose.models.PriceHistory
   ? (mongoose.models.PriceHistory as mongoose.Model<any>)
   : mongoose.model('PriceHistory', PriceHistorySchema);
+
+export const PriceHistoryModel: mongoose.Model<any> = wrapModel('PriceHistory', RawPriceHistoryModel);

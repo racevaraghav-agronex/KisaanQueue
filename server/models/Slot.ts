@@ -41,6 +41,10 @@ const SlotSchema: Schema = new Schema(
 SlotSchema.index({ serviceId: 1, date: 1, startTime: 1 }, { unique: true });
 SlotSchema.index({ date: 1, serviceId: 1 });
 
-export const SlotModel: mongoose.Model<any> = mongoose.models.Slot
+import { wrapModel } from '../memoryDb.ts';
+
+const RawSlotModel: mongoose.Model<any> = mongoose.models.Slot
   ? (mongoose.models.Slot as mongoose.Model<any>)
   : mongoose.model('Slot', SlotSchema);
+
+export const SlotModel: mongoose.Model<any> = wrapModel('Slot', RawSlotModel);

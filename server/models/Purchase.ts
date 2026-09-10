@@ -40,6 +40,10 @@ const PurchaseSchema: Schema = new Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-export const PurchaseModel: mongoose.Model<any> = mongoose.models.Purchase
+import { wrapModel } from '../memoryDb.ts';
+
+const RawPurchaseModel: mongoose.Model<any> = mongoose.models.Purchase
   ? (mongoose.models.Purchase as mongoose.Model<any>)
   : mongoose.model('Purchase', PurchaseSchema);
+
+export const PurchaseModel: mongoose.Model<any> = wrapModel('Purchase', RawPurchaseModel);

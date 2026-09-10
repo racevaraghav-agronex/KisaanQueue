@@ -11,6 +11,7 @@ import { NewPurchaseModal } from './NewPurchaseModal.tsx';
 import { PurchaseDetailsModal } from './PurchaseDetailsModal.tsx';
 import { TokenVerifyModal } from './TokenVerifyModal.tsx';
 import { PublicDisplayBoard } from './PublicDisplayBoard.tsx';
+import { StaffProcurementTab } from './StaffProcurementTab.tsx';
 import { announceToken, playChime } from '../utils/audio.ts';
 import { 
   PhoneCall, 
@@ -42,7 +43,8 @@ import {
   Calendar,
   MapPin,
   Tag,
-  UserCheck
+  UserCheck,
+  Wheat
 } from 'lucide-react';
 
 export const StaffDashboard: React.FC = () => {
@@ -53,7 +55,7 @@ export const StaffDashboard: React.FC = () => {
   const [shiftStatus, setShiftStatus] = useState<'active' | 'break' | 'offline'>(
     (user as any)?.shiftStatus || 'active'
   );
-  const [activeTab, setActiveTab] = useState<'queue' | 'sales' | 'history' | 'inventory' | 'purchases'>('queue');
+  const [activeTab, setActiveTab] = useState<'queue' | 'sales' | 'history' | 'inventory' | 'purchases' | 'procurement'>('queue');
 
   // Operational Queue State
   const [currentServingToken, setCurrentServingToken] = useState<TokenItem | null>(null);
@@ -1051,6 +1053,18 @@ export const StaffDashboard: React.FC = () => {
           <Layers className="w-4 h-4 text-emerald-600" />
           <span>{t('staff.tabPurchases', 'Purchases Register')}</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('procurement')}
+          className={`px-4 py-2.5 rounded-xl transition-all cursor-pointer flex items-center space-x-2 whitespace-nowrap ${
+            activeTab === 'procurement'
+              ? 'bg-white text-emerald-950 font-bold shadow-sm border border-slate-200/90 ring-1 ring-emerald-500/10'
+              : 'text-slate-600 hover:text-slate-950 hover:bg-white/60'
+          }`}
+        >
+          <Wheat className="w-4 h-4 text-emerald-600" />
+          <span>Farmer Procurement (Phase 4)</span>
+        </button>
       </div>
 
       {/* Notifications Toast */}
@@ -1927,6 +1941,15 @@ export const StaffDashboard: React.FC = () => {
             </table>
           </div>
         </div>
+      )}
+
+      {/* ================= TAB 6: FARMER PROCUREMENT WORKFLOW DESK ================= */}
+      {activeTab === 'procurement' && (
+        <StaffProcurementTab
+          token={token || ''}
+          currentServingToken={currentServingToken}
+          onNotification={(n) => setNotification({ type: n.type, text: n.text })}
+        />
       )}
 
       {/* ================= MODALS ================= */}

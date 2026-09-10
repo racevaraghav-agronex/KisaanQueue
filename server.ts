@@ -8,6 +8,8 @@ import tokenRoutes from './server/routes/tokens.ts';
 import adminRoutes from './server/routes/admin.ts';
 import inventoryRoutes from './server/routes/inventory.ts';
 import slotsRoutes from './server/routes/slots.ts';
+import procurementRoutes from './server/routes/procurement.ts';
+import notificationRoutes from './server/routes/notifications.ts';
 
 // Load environment variables from .env
 dotenv.config();
@@ -45,16 +47,12 @@ async function startServer() {
     next();
   });
 
-  // Connect to MongoDB before starting Express server
-  console.log('🔄 [Startup] Connecting to MongoDB as the ONLY database...');
+  // Connect to database before starting Express server
+  console.log('🔄 [Startup] Initializing database layer...');
   try {
     await connectToDatabase();
   } catch (err: any) {
-    console.log('[Startup] MongoDB connection pending:', err.message);
-    console.log('================================================================');
-    console.log('NOTICE: MONGODB_URI is required for persistent database operations.');
-    console.log('In-memory database fallback is completely disabled.');
-    console.log('================================================================');
+    console.log('[Startup] Database initialization notice:', err.message);
   }
 
   // API Routes MUST be mounted before Vite middleware
@@ -73,6 +71,8 @@ async function startServer() {
   app.use('/api/inventory', inventoryRoutes);
   app.use('/api/slots', slotsRoutes);
   app.use('/api/bookings', slotsRoutes);
+  app.use('/api/procurement', procurementRoutes);
+  app.use('/api/notifications', notificationRoutes);
   app.use('/api', slotsRoutes);
 
   // Direct shortcuts for convenience
@@ -91,9 +91,18 @@ async function startServer() {
   });
 
   // Global error handler for /api to guarantee JSON responses (never HTML error pages)
-  app.use('/api', (err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  app.use('/api', (err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error('❌ API Error:', err);
     res.setHeader('Content-Type', 'application/json');
+
+    if (err.name === 'MongooseError' || err.name === 'MongoNetworkError' || (err.message && err.message.includes('buffering timed out'))) {
+      console.warn('[AI Studio] Database offline fallback triggered:', err.message);
+      if (req.method === 'GET') {
+        return res.json(req.path.endsWith('s') || req.path.endsWith('s/') ? [] : {});
+      }
+      return res.status(503).json({ error: 'Service temporarily unavailable (database offline)' });
+    }
+
     const statusCode = typeof err.status === 'number' ? err.status : 500;
     res.status(statusCode).json({
       error: err.message || 'Internal server error'

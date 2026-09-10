@@ -46,7 +46,11 @@ UserSchema.pre('save', function(this: any) {
   this.updatedAt = new Date();
 });
 
-export const UserModel: mongoose.Model<any> = mongoose.models.User 
+import { wrapModel } from '../memoryDb.ts';
+
+const RawUserModel: mongoose.Model<any> = mongoose.models.User 
   ? (mongoose.models.User as mongoose.Model<any>)
   : mongoose.model('User', UserSchema);
+
+export const UserModel: mongoose.Model<any> = wrapModel('User', RawUserModel);
 

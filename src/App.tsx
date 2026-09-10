@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
 import { LanguageProvider, useLanguage } from './context/LanguageContext.tsx';
+import { NotificationProvider } from './context/NotificationContext.tsx';
 import { Navbar } from './components/Navbar.tsx';
 import { LandingPage } from './components/LandingPage.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
@@ -276,7 +277,9 @@ export default function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <MainApp />
+        <NotificationProvider>
+          <MainApp />
+        </NotificationProvider>
       </AuthProvider>
     </LanguageProvider>
   );

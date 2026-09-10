@@ -67,6 +67,10 @@ BookingSchema.index({ serviceId: 1, date: 1, startTime: 1, status: 1 });
 BookingSchema.index({ bookingReference: 1 });
 BookingSchema.index({ date: 1, status: 1 });
 
-export const BookingModel: mongoose.Model<any> = mongoose.models.Booking
+import { wrapModel } from '../memoryDb.ts';
+
+const RawBookingModel: mongoose.Model<any> = mongoose.models.Booking
   ? (mongoose.models.Booking as mongoose.Model<any>)
   : mongoose.model('Booking', BookingSchema);
+
+export const BookingModel: mongoose.Model<any> = wrapModel('Booking', RawBookingModel);

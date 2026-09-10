@@ -5,6 +5,11 @@ import { ServiceModel, DEFAULT_SERVICES } from '../models/Service.ts';
 import { TokenModel } from '../models/Token.ts';
 import { dbStatus } from '../db.ts';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth.ts';
+import {
+  notifySlotConfirmed,
+  notifySlotCancelled,
+  notifySlotRescheduled
+} from '../utils/notificationService.ts';
 
 const router = Router();
 
@@ -483,6 +488,18 @@ router.post(['/', '/bookings'], authenticate, async (req: AuthRequest, res: Resp
       await generatedToken.save();
     }
 
+    // Trigger notification: Slot Confirmed
+    notifySlotConfirmed({
+      userId: String(user._id),
+      userPhone: user.phone,
+      bookingReference,
+      serviceName,
+      date,
+      slotString,
+      centre,
+      tokenNumber: generatedToken ? generatedToken.tokenNumber : undefined
+    }).catch(err => console.warn('Notification trigger error:', err));
+
     res.status(201).json({
       message: 'Slot booked successfully!',
       booking: booking.toObject(),
@@ -658,6 +675,17 @@ const handleCancelBooking = async (req: AuthRequest, res: Response): Promise<voi
     booking.cancelReason = reason || 'Cancelled by farmer';
     await booking.save();
 
+    // Trigger notification: Slot Cancelled
+    notifySlotCancelled({
+      userId: String(booking.farmerId),
+      userPhone: booking.farmerPhone,
+      bookingReference: booking.bookingReference,
+      serviceName: booking.serviceName,
+      date: booking.date,
+      slotString: booking.slotString,
+      reason: booking.cancelReason
+    }).catch(() => {});
+
     // 3. If an associated waiting token exists in MongoDB, safely update its status
     if (booking.tokenId) {
       await TokenModel.findOneAndUpdate(
@@ -813,6 +841,8 @@ router.post(['/:id/reschedule', '/bookings/:id/reschedule'], authenticate, async
 
     // Save old slot info for reference
     const oldDetails = `${booking.date} (${booking.slotString})`;
+    const oldDate = booking.date;
+    const oldSlotString = booking.slotString;
     const newSlotString = generateSlotString(newStartTime, newEndTime);
 
     // Update booking
@@ -824,6 +854,18 @@ router.post(['/:id/reschedule', '/bookings/:id/reschedule'], authenticate, async
     booking.rescheduledFrom = oldDetails;
     booking.status = 'CONFIRMED';
     await booking.save();
+
+    // Trigger notification: Slot Rescheduled
+    notifySlotRescheduled({
+      userId: String(booking.farmerId),
+      userPhone: booking.farmerPhone,
+      bookingReference: booking.bookingReference,
+      serviceName: booking.serviceName,
+      oldDate,
+      oldSlotString,
+      newDate,
+      newSlotString
+    }).catch(() => {});
 
     // If there is an active waiting token, update its slot details
     if (booking.tokenId) {

@@ -58,7 +58,11 @@ const TokenSchema: Schema = new Schema({
   bookedDate: { type: String, default: null }
 });
 
-export const TokenModel: mongoose.Model<any> = mongoose.models.Token 
+import { wrapModel } from '../memoryDb.ts';
+
+const RawTokenModel: mongoose.Model<any> = mongoose.models.Token 
   ? (mongoose.models.Token as mongoose.Model<any>)
   : mongoose.model('Token', TokenSchema);
+
+export const TokenModel: mongoose.Model<any> = wrapModel('Token', RawTokenModel);
 
