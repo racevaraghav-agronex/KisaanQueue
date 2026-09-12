@@ -10,6 +10,11 @@ import { StockMovementModel } from '../models/StockMovement.ts';
 import { ComplaintModel } from '../models/Complaint.ts';
 import { dbStatus } from '../db.ts';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth.ts';
+import { getCrowdIntelligence } from '../services/crowdIntelligenceService.ts';
+import { generateAdminAiInsights } from '../services/aiInsightsService.ts';
+import { getProcurementIntelligence } from '../services/procurementIntelligenceService.ts';
+import { getInventoryIntelligence } from '../services/inventoryIntelligenceService.ts';
+import { detectOperationalAnomalies } from '../services/anomalyDetectionService.ts';
 
 const router = Router();
 
@@ -1003,6 +1008,112 @@ router.patch('/complaints/:id/status', async (req: AuthRequest, res: Response): 
     res.json({ ok: true, complaint });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to update complaint: ' + err.message });
+  }
+});
+
+/**
+ * GET /api/admin/crowd-intelligence
+ * AI-assisted crowd and footfall intelligence using real MongoDB token and booking data
+ */
+router.get(['/crowd-intelligence', '/analytics/crowd-intelligence'], async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const force = req.query.refresh === 'true';
+    const intelligence = await getCrowdIntelligence(force);
+    res.json(intelligence);
+  } catch (err: any) {
+    console.error('Error in crowd intelligence endpoint:', err);
+    res.status(500).json({ error: 'Failed to generate crowd intelligence: ' + (err.message || 'Internal error') });
+  }
+});
+
+/**
+ * GET /api/admin/ai-insights
+ * Real-data grounded operational AI insights for Executive Overview & Admin Analytics
+ */
+router.get(['/ai-insights', '/analytics/ai-insights'], async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const force = req.query.refresh === 'true';
+    const insights = await generateAdminAiInsights(force);
+    res.json(insights);
+  } catch (err: any) {
+    console.error('Error in AI insights endpoint:', err);
+    res.status(500).json({ error: 'Failed to generate AI insights: ' + (err.message || 'Internal error') });
+  }
+});
+
+/**
+ * GET /api/admin/procurement-intelligence
+ * AI-assisted procurement intelligence analyzing crop volume, quality, rejection, payment settlements
+ */
+router.get(['/procurement-intelligence', '/analytics/procurement-intelligence'], async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { fromDate, toDate, rangeLabel } = parseDateRange(req.query);
+    const centre = req.query.centre ? req.query.centre.toString().trim() : 'ALL';
+    const staff = req.query.staff ? req.query.staff.toString().trim() : 'ALL';
+    const forceRefresh = req.query.refresh === 'true';
+
+    const result = await getProcurementIntelligence({
+      fromDate,
+      toDate,
+      rangeLabel,
+      centre,
+      staff,
+      forceRefresh
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error('Error in procurement intelligence endpoint:', err);
+    res.status(500).json({ error: 'Failed to generate procurement intelligence: ' + (err.message || 'Internal error') });
+  }
+});
+
+/**
+ * GET /api/admin/inventory-intelligence
+ * AI-assisted inventory intelligence analyzing stock velocity, turnover, reorder risk, adjustments
+ */
+router.get(['/inventory-intelligence', '/analytics/inventory-intelligence'], async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { fromDate, toDate, rangeLabel } = parseDateRange(req.query);
+    const staff = req.query.staff ? req.query.staff.toString().trim() : 'ALL';
+    const forceRefresh = req.query.refresh === 'true';
+
+    const result = await getInventoryIntelligence({
+      fromDate,
+      toDate,
+      rangeLabel,
+      staff,
+      forceRefresh
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error('Error in inventory intelligence endpoint:', err);
+    res.status(500).json({ error: 'Failed to generate inventory intelligence: ' + (err.message || 'Internal error') });
+  }
+});
+
+/**
+ * GET /api/admin/anomalies
+ * Operational anomaly detection analyzing Queue, Procurement, Inventory, Sales, and Complaints
+ */
+router.get(['/anomalies', '/analytics/anomalies'], async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { fromDate, toDate, rangeLabel } = parseDateRange(req.query);
+    const centre = req.query.centre ? req.query.centre.toString().trim() : 'ALL';
+    const staff = req.query.staff ? req.query.staff.toString().trim() : 'ALL';
+    const forceRefresh = req.query.refresh === 'true';
+
+    const result = await detectOperationalAnomalies({
+      fromDate,
+      toDate,
+      rangeLabel,
+      centre,
+      staff,
+      forceRefresh
+    });
+    res.json(result);
+  } catch (err: any) {
+    console.error('Error in anomalies endpoint:', err);
+    res.status(500).json({ error: 'Failed to detect operational anomalies: ' + (err.message || 'Internal error') });
   }
 });
 

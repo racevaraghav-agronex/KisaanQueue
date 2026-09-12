@@ -720,7 +720,14 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ services, pres
             </div>
 
             <div className="p-2.5 rounded-lg bg-white border border-slate-200/60">
-              <div className="text-slate-500 font-medium">Estimated Wait</div>
+              <div className="flex items-center justify-between text-slate-500 font-medium">
+                <span>Estimated Wait</span>
+                {activeToken.isAiEstimate && (
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    AI Smart ETA
+                  </span>
+                )}
+              </div>
               <div className="text-base sm:text-lg font-black text-emerald-800 font-mono mt-0.5">
                 {activeToken.status === 'serving' 
                   ? '0 min' 
@@ -743,6 +750,29 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({ services, pres
               </div>
             </div>
           </div>
+
+          {/* AI Smart ETA Grounding Notice */}
+          {activeToken.isAiEstimate && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-emerald-900 bg-emerald-50/80 border border-emerald-200/80 px-3.5 py-2.5 rounded-xl">
+              <span className="flex items-center gap-1.5 font-medium">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span>
+                  {activeToken.disclaimer || 'Smart ETA calculated from empirical service durations and active counters.'}
+                </span>
+              </span>
+              {activeToken.queueLoad && (
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider self-start sm:self-auto shrink-0 ${
+                  activeToken.queueLoad === 'heavy'
+                    ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                    : activeToken.queueLoad === 'moderate'
+                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                }`}>
+                  Queue Load: {activeToken.queueLoad}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">

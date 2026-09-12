@@ -73,6 +73,14 @@ export interface TokenItem {
   slotString?: string;
   bookedDate?: string;
   requiresBilling?: boolean;
+  isAiEstimate?: boolean;
+  confidenceLevel?: 'high' | 'moderate' | 'baseline_fallback';
+  empiricalDurationMinutes?: number | null;
+  configuredDurationMinutes?: number;
+  completedSamplesCount?: number;
+  activeStaffOnDuty?: number;
+  queueLoad?: 'light' | 'moderate' | 'heavy';
+  disclaimer?: string;
 }
 
 export interface TokenVerificationResult {

@@ -22,8 +22,12 @@ import {
   ArrowUpRight,
   ShieldAlert,
   Percent,
-  ChevronDown
+  ChevronDown,
+  Sparkles
 } from 'lucide-react';
+import { AdminAiInsightsCard } from './AdminAiInsightsCard.tsx';
+import { ProcurementIntelligenceCard } from './ProcurementIntelligenceCard.tsx';
+import { InventoryIntelligenceCard } from './InventoryIntelligenceCard.tsx';
 
 interface AdminAnalyticsTabProps {
   token: string;
@@ -151,13 +155,26 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({ token, onN
   const [selectedStaff, setSelectedStaff] = useState<string>('ALL');
   const [selectedCentre, setSelectedCentre] = useState<string>('ALL');
 
-  // Sub-section tab: 'overview' | 'queue' | 'procurement' | 'sales' | 'complaints'
-  const [activeSection, setActiveSection] = useState<'overview' | 'queue' | 'procurement' | 'sales' | 'complaints'>('overview');
+  // Sub-section tab: 'overview' | 'ai' | 'queue' | 'procurement' | 'sales' | 'complaints'
+  const [activeSection, setActiveSection] = useState<'overview' | 'ai' | 'queue' | 'procurement' | 'sales' | 'complaints'>('overview');
 
   // Data State
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  const currentQueryParams = React.useMemo(() => {
+    const params = new URLSearchParams();
+    params.set('range', dateRange);
+    if (dateRange === 'custom') {
+      if (customStart) params.set('startDate', customStart);
+      if (customEnd) params.set('endDate', customEnd);
+    }
+    if (selectedService !== 'ALL') params.set('service', selectedService);
+    if (selectedStaff !== 'ALL') params.set('staff', selectedStaff);
+    if (selectedCentre !== 'ALL') params.set('centre', selectedCentre);
+    return params.toString();
+  }, [dateRange, customStart, customEnd, selectedService, selectedStaff, selectedCentre]);
 
   const fetchAnalytics = async () => {
     try {
@@ -373,6 +390,18 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({ token, onN
         </button>
 
         <button
+          onClick={() => setActiveSection('ai')}
+          className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            activeSection === 'ai'
+              ? 'bg-emerald-800 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+          <span>AI Insights & Crowd</span>
+        </button>
+
+        <button
           onClick={() => setActiveSection('queue')}
           className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
             activeSection === 'queue'
@@ -443,9 +472,19 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({ token, onN
       {/* 3. SECTION CONTENT */}
       {data && (
         <>
+          {/* SECTION 0: DEDICATED AI INSIGHTS & CROWD INTELLIGENCE */}
+          {activeSection === 'ai' && (
+            <div className="space-y-6">
+              <AdminAiInsightsCard token={token} queryParams={currentQueryParams} onNotification={onNotification} />
+            </div>
+          )}
+
           {/* SECTION 1: EXECUTIVE OVERVIEW (ALL 12 METRICS FROM USER REQUIREMENT 1) */}
           {activeSection === 'overview' && (
             <div className="space-y-6">
+              {/* AI Operational Intelligence Summary Card */}
+              <AdminAiInsightsCard token={token} queryParams={currentQueryParams} onNotification={onNotification} />
+
               {/* Primary 12-Card Grid covering:
                   - Total Farmers
                   - Today's Tokens
@@ -848,6 +887,9 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({ token, onN
           {/* SECTION 3: PROCUREMENT ANALYTICS (USER REQUIREMENT 4) */}
           {activeSection === 'procurement' && (
             <div className="space-y-6">
+              {/* AI Procurement Intelligence Card */}
+              <ProcurementIntelligenceCard token={token} queryParams={currentQueryParams} onNotification={onNotification} />
+
               {/* Metric Highlights */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
@@ -961,6 +1003,9 @@ export const AdminAnalyticsTab: React.FC<AdminAnalyticsTabProps> = ({ token, onN
           {/* SECTION 4: SALES & INVENTORY (USER REQUIREMENT 5) */}
           {activeSection === 'sales' && (
             <div className="space-y-6">
+              {/* AI Inventory & Turnover Intelligence Card */}
+              <InventoryIntelligenceCard token={token} queryParams={currentQueryParams} onNotification={onNotification} />
+
               {/* Purchase vs Sales Comparison Card */}
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">

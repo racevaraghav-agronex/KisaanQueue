@@ -12,9 +12,11 @@ import {
   Layers, 
   MapPin, 
   Ticket, 
-  ArrowRight,
-  ShieldCheck,
-  RefreshCw
+  ArrowRight, 
+  ShieldCheck, 
+  RefreshCw,
+  Building2,
+  Sparkles
 } from 'lucide-react';
 
 interface SlotBookingModalProps {
@@ -52,6 +54,10 @@ export const SlotBookingModal: React.FC<SlotBookingModalProps> = ({
   const [selectedSlot, setSelectedSlot] = useState<SlotItem | null>(null);
   const [slotsLoading, setSlotsLoading] = useState<boolean>(true);
   const [slotsError, setSlotsError] = useState<string | null>(null);
+
+  // Smart Kendra Recommendation State (Batch 8C)
+  const [kendraRec, setKendraRec] = useState<any>(null);
+  const [loadingKendraRec, setLoadingKendraRec] = useState<boolean>(false);
 
   // 4. Submission & Confirmation
   const [notes, setNotes] = useState<string>('');
@@ -99,9 +105,27 @@ export const SlotBookingModal: React.FC<SlotBookingModalProps> = ({
     }
   };
 
+  const fetchKendraRec = async () => {
+    if (!token || !selectedServiceId) return;
+    try {
+      setLoadingKendraRec(true);
+      const res = await safeFetchJson<any>(`/api/ai/recommendations/kendra?serviceCode=${encodeURIComponent(selectedServiceId)}&date=${selectedDate}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data) {
+        setKendraRec(res.data);
+      }
+    } catch {
+      // Non-blocking advisory evaluation
+    } finally {
+      setLoadingKendraRec(false);
+    }
+  };
+
   useEffect(() => {
     fetchAvailability();
-  }, [selectedServiceId, selectedDate]);
+    fetchKendraRec();
+  }, [selectedServiceId, selectedDate, token]);
 
   // Handle Confirm Booking
   const handleConfirmBooking = async (e: React.FormEvent) => {
@@ -356,6 +380,45 @@ export const SlotBookingModal: React.FC<SlotBookingModalProps> = ({
                   })}
                 </div>
               </div>
+
+              {/* SMART KENDRA RECOMMENDATION (BATCH 8C) */}
+              {kendraRec && kendraRec.recommendedCentre && (
+                <div className="bg-teal-50/70 border border-teal-200/80 rounded-2xl p-3.5 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-teal-100 border border-teal-300 flex items-center justify-center shrink-0">
+                        <Building2 className="w-3.5 h-3.5 text-teal-800" />
+                      </div>
+                      <span className="text-xs font-bold text-teal-950">
+                        Recommended Kendra: {kendraRec.recommendedCentre.centreName}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200 self-start sm:self-auto">
+                      {kendraRec.recommendedCentre.operationalStatus}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs pt-1">
+                    <div className="bg-white/80 p-2 rounded-xl border border-teal-100">
+                      <span className="text-[10px] text-teal-800 font-medium block">Service Queue</span>
+                      <strong className="text-slate-900">{kendraRec.recommendedCentre.serviceQueueWaiting} waiting</strong>
+                    </div>
+                    <div className="bg-white/80 p-2 rounded-xl border border-teal-100">
+                      <span className="text-[10px] text-teal-800 font-medium block">Estimated Wait (ETA)</span>
+                      <strong className="text-teal-900">{kendraRec.recommendedCentre.estimatedWaitText}</strong>
+                    </div>
+                    <div className="bg-white/80 p-2 rounded-xl border border-teal-100 col-span-2 sm:col-span-1">
+                      <span className="text-[10px] text-teal-800 font-medium block">Distance</span>
+                      <span className="text-slate-500 font-medium text-[11px]">Not recorded in GPS</span>
+                    </div>
+                  </div>
+
+                  <div className="text-[10px] text-teal-900/80 flex items-center gap-1.5 pt-0.5">
+                    <ShieldCheck className="w-3 h-3 text-teal-700 shrink-0" />
+                    <span>Real-time Kendra recommendation • Zero fabricated distances</span>
+                  </div>
+                </div>
+              )}
 
               {/* 3. AVAILABLE TIME SLOTS GRID */}
               <div className="space-y-2">

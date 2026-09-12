@@ -5,6 +5,7 @@ import { ProcurementModel } from '../models/Procurement.ts';
 import { SaleModel } from '../models/Sale.ts';
 import { NotificationModel } from '../models/Notification.ts';
 import { ServiceModel, DEFAULT_SERVICES } from '../models/Service.ts';
+import { calculateIntelligentEta } from './smartEtaService.ts';
 
 // Lazy client singleton
 let geminiClient: GoogleGenAI | null = null;
@@ -45,6 +46,9 @@ export interface FarmerContext {
     issuedAt: string;
     calledAt?: string | null;
     peopleAhead: number;
+    estimatedWaitText?: string;
+    estimatedTurnTime?: string;
+    isAiEstimate?: boolean;
     requiresBilling?: boolean;
   } | null;
   currentlyServingAtCounters: Array<{
@@ -163,6 +167,33 @@ export async function getFarmerContext(
       }).catch(() => 0);
     }
 
+    let smartWaitText: string | undefined;
+    let smartTurnTime: string | undefined;
+    let isAi = false;
+
+    if (activeTokenDoc.status === 'waiting' || activeTokenDoc.status === 'serving') {
+      try {
+        const allWaiting = await TokenModel.find({ status: 'waiting' }).sort({ sequence: 1 }).lean().catch(() => []);
+        const allServing = await TokenModel.find({ status: { $in: ['called', 'serving'] } }).lean().catch(() => []);
+        const targetIdx = allWaiting.findIndex((t: any) => String(t._id) === String(activeTokenDoc._id) || t.tokenNumber === activeTokenDoc.tokenNumber);
+        const etaRes = await calculateIntelligentEta({
+          tokenNumber: activeTokenDoc.tokenNumber,
+          serviceId: activeTokenDoc.serviceId,
+          serviceName: activeTokenDoc.serviceName,
+          tokenStatus: activeTokenDoc.status,
+          waitingTokens: allWaiting,
+          targetIndex: targetIdx >= 0 ? targetIdx : peopleAhead,
+          servingTokens: allServing,
+          centre: activeTokenDoc.centre
+        });
+        smartWaitText = etaRes.estimatedWaitText;
+        smartTurnTime = etaRes.estimatedTurnTime;
+        isAi = etaRes.isAiEstimate;
+      } catch (err) {
+        console.warn('Could not compute smart ETA for farmer context:', err);
+      }
+    }
+
     activeToken = {
       tokenNumber: activeTokenDoc.tokenNumber,
       serviceName: activeTokenDoc.serviceName,
@@ -171,6 +202,9 @@ export async function getFarmerContext(
       issuedAt: activeTokenDoc.issuedAt ? new Date(activeTokenDoc.issuedAt).toLocaleTimeString('en-IN') : '',
       calledAt: activeTokenDoc.calledAt ? new Date(activeTokenDoc.calledAt).toLocaleTimeString('en-IN') : null,
       peopleAhead,
+      estimatedWaitText: smartWaitText || (peopleAhead > 0 ? `~${peopleAhead * 10} minutes` : 'Next in line'),
+      estimatedTurnTime: smartTurnTime,
+      isAiEstimate: isAi,
       requiresBilling: Boolean(activeTokenDoc.requiresBilling)
     };
   }
@@ -317,7 +351,8 @@ STRICT CORE DIRECTIVES:
    - You MUST answer questions based EXCLUSIVELY on the verified application data provided above.
    - NEVER invent, extrapolate, or hallucinate: token numbers, queue positions, wait times/ETAs, booking references, crop weights, payment statuses, or receipts.
    - If the farmer asks about an item or record that does NOT exist in the verified data above (e.g. an unissued token, a missing payment, or an unbooked appointment), clearly and politely state in the response that the record is not available or not on file at the Kendra.
-   - NEVER predict exact wait times or minutes. You may tell the farmer how many people are currently ahead of them and the average duration of that service, while clarifying that actual queue speed depends on counter processing.
+   - If the farmer asks about Kendra recommendations or Kendra distance, advise based exclusively on the verified Kendra data, queue size, and active services. NEVER invent or hallucinate physical distances (e.g. "3 km away") as GPS coordinates are not recorded in the database. Politely clarify that distance is not stored if asked.
+   - If the farmer's activeToken has estimatedWaitText or estimatedTurnTime, you can provide it to the farmer as an AI estimate (e.g. "अनुमानित प्रतीक्षा समय लगभग X मिनट है"), while clarifying that actual time depends on counter service speed. If no active token is present, advise them clearly.
 
 2. BILINGUAL SUPPORT (Hindi & English):
    - You fluently speak Hindi (हिंदी) and English.
@@ -356,15 +391,30 @@ STRICT CORE DIRECTIVES:
 
   try {
     const ai = getGeminiClient();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: contents as any,
-      config: {
-        systemInstruction,
-        temperature: 0.3, // Low temperature for high factual accuracy
-        topP: 0.95
-      }
-    });
+    let response: any = null;
+
+    try {
+      response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: contents as any,
+        config: {
+          systemInstruction,
+          temperature: 0.3,
+          topP: 0.95
+        }
+      });
+    } catch (primaryModelErr: any) {
+      console.warn('Primary model error, attempting fallback model (gemini-3.1-flash-lite):', primaryModelErr?.message);
+      response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents: contents as any,
+        config: {
+          systemInstruction,
+          temperature: 0.3,
+          topP: 0.95
+        }
+      });
+    }
 
     const replyText = response.text || 'नमस्ते। हमें आपका अनुरोध प्राप्त हुआ है, कृपया थोड़ी देर बाद पुनः प्रयास करें।';
 

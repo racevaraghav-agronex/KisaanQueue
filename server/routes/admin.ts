@@ -8,12 +8,13 @@ import { SaleModel } from '../models/Sale.ts';
 import { PriceHistoryModel } from '../models/PriceHistory.ts';
 import { dbStatus } from '../db.ts';
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth.ts';
-import { 
-  normalizeIndianMobile, 
+import { normalizeIndianMobile, 
   isValidEmail, 
   MOBILE_ERROR_MESSAGE, 
   EMAIL_ERROR_MESSAGE 
 } from '../utils/validators.ts';
+import { getSmartStaffRecommendations } from '../services/staffRecommendationService.ts';
+import { getSmartKendraRecommendation } from '../services/kendraRecommendationService.ts';
 
 const router = Router();
 
@@ -983,6 +984,37 @@ router.get('/reports/daily', async (_req: AuthRequest, res: Response): Promise<v
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to generate daily report' });
+  }
+});
+
+// ==========================================
+// 12. SMART STAFF & COUNTER RECOMMENDATION (BATCH 8C)
+// ==========================================
+router.get(['/recommendations/staff', '/staff-recommendations'], async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const forceRefresh = req.query.refresh === 'true';
+    const result = await getSmartStaffRecommendations(forceRefresh);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Error generating staff recommendations:', err);
+    res.status(500).json({ error: err.message || 'Failed to generate staff and counter recommendations.' });
+  }
+});
+
+// ==========================================
+// 13. SMART KENDRA RECOMMENDATION (BATCH 8C)
+// ==========================================
+router.get(['/recommendations/kendra', '/kendra-recommendations'], async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const serviceCode = req.query.serviceCode ? String(req.query.serviceCode) : undefined;
+    const date = req.query.date ? String(req.query.date) : undefined;
+    const forceRefresh = req.query.refresh === 'true';
+
+    const result = await getSmartKendraRecommendation({ serviceCode, date, forceRefresh });
+    res.json(result);
+  } catch (err: any) {
+    console.error('Error generating Kendra recommendations:', err);
+    res.status(500).json({ error: err.message || 'Failed to generate Kendra recommendations.' });
   }
 });
 

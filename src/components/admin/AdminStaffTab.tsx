@@ -23,8 +23,12 @@ import {
   RotateCw,
   Layers,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  ShieldCheck
 } from 'lucide-react';
+import { StaffRecommendationCard } from './StaffRecommendationCard.tsx';
 
 interface AdminStaffTabProps {
   token: string;
@@ -70,6 +74,27 @@ export const AdminStaffTab: React.FC<AdminStaffTabProps> = ({ token, onNotificat
     targetStatus: 'active' | 'inactive';
   } | null>(null);
 
+  // Smart Staff & Counter Recommendation (Batch 8C)
+  const [recData, setRecData] = useState<any>(null);
+  const [showFullRec, setShowFullRec] = useState<boolean>(false);
+  const [loadingRec, setLoadingRec] = useState<boolean>(false);
+
+  const fetchStaffRecs = async () => {
+    try {
+      setLoadingRec(true);
+      const res = await safeFetchJson<any>('/api/admin/recommendations/staff', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.data) {
+        setRecData(res.data);
+      }
+    } catch {
+      // Non-blocking background evaluation
+    } finally {
+      setLoadingRec(false);
+    }
+  };
+
   const fetchStaff = async () => {
     try {
       setLoading(true);
@@ -98,6 +123,10 @@ export const AdminStaffTab: React.FC<AdminStaffTabProps> = ({ token, onNotificat
   useEffect(() => {
     fetchStaff();
   }, [search, statusFilter]);
+
+  useEffect(() => {
+    fetchStaffRecs();
+  }, [token]);
 
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -247,6 +276,67 @@ export const AdminStaffTab: React.FC<AdminStaffTabProps> = ({ token, onNotificat
 
   return (
     <div className="space-y-6">
+      {/* Smart Staff & Counter Recommendation Advisory Card (Batch 8C) */}
+      {recData && (
+        <div className="bg-white rounded-2xl border border-indigo-100 shadow-xs p-4.5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center shrink-0">
+                <Users className="w-4 h-4 text-indigo-700" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                    Smart Staff / Counter Recommendation
+                  </h3>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                    recData.status === 'high_pressure_alert'
+                      ? 'bg-rose-100 text-rose-800'
+                      : recData.status === 'rebalance_suggested'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-emerald-100 text-emerald-800'
+                  }`}>
+                    {recData.overallAssessment}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-700 mt-0.5 font-medium">
+                  {recData.recommendations?.[0]?.description || recData.executiveSummary}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setShowFullRec(!showFullRec)}
+                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-xs font-bold rounded-xl flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <span>{showFullRec ? 'Hide Details' : 'View Pressure Matrix'}</span>
+                {showFullRec ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Collapsible Full Staff Recommendation Card */}
+          {showFullRec && (
+            <div className="pt-3 border-t border-slate-100">
+              <StaffRecommendationCard
+                token={token}
+                onNotification={onNotification}
+              />
+            </div>
+          )}
+
+          {/* Grounding and Non-Destructive Advisory Reminder */}
+          <div className="text-[11px] text-slate-500 flex items-center gap-1.5 pt-1 border-t border-slate-100/60">
+            <ShieldCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <span>
+              Advisory only. To reallocate a counter or change shift, click <strong>Edit</strong> on any staff member below.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Header controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
         <div className="flex items-center gap-2.5">

@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { dbStatus } from '../db.ts';
 import { authenticate, AuthRequest } from '../middleware/auth.ts';
 import { handleFarmerAiChat, ChatHistoryItem } from '../services/aiService.ts';
+import { getSmartKendraRecommendation } from '../services/kendraRecommendationService.ts';
 
 const router = Router();
 
@@ -47,9 +48,27 @@ router.get('/status', (_req, res: Response) => {
   const hasKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim());
   res.json({
     status: hasKey ? 'ready' : 'degraded',
-    model: 'gemini-3.6-flash',
+    model: 'gemini-3.8-flash',
     features: ['bilingual', 'grounded_data', 'rate_limited', 'lazy_init']
   });
+});
+
+/**
+ * GET /api/ai/recommendations/kendra
+ * Grounded Kendra recommendation for farmers based on real queue, ETA and slots
+ */
+router.get('/recommendations/kendra', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const serviceCode = req.query.serviceCode ? String(req.query.serviceCode) : undefined;
+    const date = req.query.date ? String(req.query.date) : undefined;
+    const forceRefresh = req.query.refresh === 'true';
+
+    const result = await getSmartKendraRecommendation({ serviceCode, date, forceRefresh });
+    res.json(result);
+  } catch (err: any) {
+    console.error('Error generating farmer Kendra recommendation:', err);
+    res.status(500).json({ error: err.message || 'Failed to generate Kendra recommendation.' });
+  }
 });
 
 /**

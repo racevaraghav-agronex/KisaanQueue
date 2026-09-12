@@ -14,6 +14,7 @@ import {
   notifyTokenCompleted,
   notifyTokenCancelled
 } from '../utils/notificationService.ts';
+import { calculateIntelligentEta } from '../services/smartEtaService.ts';
 
 const router = Router();
 
@@ -599,12 +600,39 @@ router.get('/:tokenId/queue-position', async (req, res): Promise<void> => {
       tokenStatus: token.status
     });
 
+    let smartEta: any = null;
+    try {
+      smartEta = await calculateIntelligentEta({
+        tokenNumber: token.tokenNumber,
+        serviceId: token.serviceId,
+        serviceName: token.serviceName,
+        tokenStatus: token.status,
+        waitingTokens: metrics.waitingTokens,
+        targetIndex: idx,
+        servingTokens: metrics.servingTokens,
+        centre: token.centre
+      });
+    } catch (smartErr) {
+      console.warn('[SmartETA] Fallback to deterministic queue info:', smartErr);
+    }
+
     res.json({
       tokenNumber: token.tokenNumber,
       status: token.status,
       counterNumber: token.counterNumber || null,
       currentlyServing: metrics.servingTokens,
-      ...queueInfo
+      ...queueInfo,
+      ...(smartEta ? {
+        isAiEstimate: smartEta.isAiEstimate,
+        confidenceLevel: smartEta.confidenceLevel,
+        empiricalDurationMinutes: smartEta.empiricalDurationMinutes,
+        configuredDurationMinutes: smartEta.configuredDurationMinutes,
+        completedSamplesCount: smartEta.completedSamplesCount,
+        queueLoad: smartEta.queueLoad,
+        activeStaffOnDuty: smartEta.activeStaffOnDuty,
+        disclaimer: smartEta.disclaimer,
+        estimatedWaitText: smartEta.estimatedWaitText || queueInfo.estimatedWaitText
+      } : {})
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to calculate queue position' });
@@ -640,19 +668,84 @@ router.get('/:tokenId/eta', async (req, res): Promise<void> => {
 
     const avgMins = getServiceDuration(token.serviceId, token.serviceName, metrics.serviceDurationsMap);
 
+    let smartEta: any = null;
+    try {
+      smartEta = await calculateIntelligentEta({
+        tokenNumber: token.tokenNumber,
+        serviceId: token.serviceId,
+        serviceName: token.serviceName,
+        tokenStatus: token.status,
+        waitingTokens: metrics.waitingTokens,
+        targetIndex: idx,
+        servingTokens: metrics.servingTokens,
+        centre: token.centre
+      });
+    } catch (smartErr) {
+      console.warn('[SmartETA] Fallback to deterministic ETA calculation:', smartErr);
+    }
+
     res.json({
       tokenNumber: token.tokenNumber,
       serviceName: token.serviceName,
-      serviceAverageMinutes: avgMins,
-      estimatedWaitMinutes: queueInfo.estimatedWaitMinutes,
-      estimatedWaitText: queueInfo.estimatedWaitText,
-      estimatedTurnTime: queueInfo.estimatedTurnTime,
-      peopleAhead: queueInfo.peopleAhead,
-      activeCountersCount: queueInfo.activeCountersCount,
-      isTurnNear: queueInfo.isTurnNear
+      serviceAverageMinutes: smartEta?.serviceAverageMinutes || avgMins,
+      estimatedWaitMinutes: smartEta?.estimatedWaitMinutes ?? queueInfo.estimatedWaitMinutes,
+      estimatedWaitText: smartEta?.estimatedWaitText || queueInfo.estimatedWaitText,
+      estimatedTurnTime: smartEta?.estimatedTurnTime || queueInfo.estimatedTurnTime,
+      peopleAhead: smartEta?.peopleAhead ?? queueInfo.peopleAhead,
+      activeCountersCount: smartEta?.activeCountersCount ?? queueInfo.activeCountersCount,
+      isTurnNear: smartEta?.isTurnNear ?? queueInfo.isTurnNear,
+      isAiEstimate: smartEta ? smartEta.isAiEstimate : false,
+      confidenceLevel: smartEta?.confidenceLevel || 'baseline_fallback',
+      empiricalDurationMinutes: smartEta?.empiricalDurationMinutes ?? null,
+      configuredDurationMinutes: smartEta?.configuredDurationMinutes || avgMins,
+      completedSamplesCount: smartEta?.completedSamplesCount || 0,
+      activeStaffOnDuty: smartEta?.activeStaffOnDuty || 1,
+      queueLoad: smartEta?.queueLoad || 'light',
+      disclaimer: smartEta?.disclaimer || 'AI estimate based on Kendra service baselines.'
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to calculate ETA' });
+  }
+});
+
+// Dedicated Smart ETA endpoint: GET /api/tokens/:tokenId/smart-eta
+router.get('/:tokenId/smart-eta', async (req, res): Promise<void> => {
+  try {
+    const { tokenId } = req.params;
+    const query = mongoose.isValidObjectId(tokenId)
+      ? { $or: [{ _id: tokenId }, { tokenNumber: tokenId.toUpperCase() }] }
+      : { tokenNumber: tokenId.toUpperCase() };
+
+    const token = await TokenModel.findOne(query);
+    if (!token) {
+      res.status(404).json({ error: 'Token not found' });
+      return;
+    }
+
+    const metrics = await getQueueMetrics();
+    const idx = metrics.waitingTokens.findIndex((t: any) =>
+      t._id.toString() === token._id.toString() || t.tokenNumber === token.tokenNumber
+    );
+
+    const result = await calculateIntelligentEta({
+      tokenNumber: token.tokenNumber,
+      serviceId: token.serviceId,
+      serviceName: token.serviceName,
+      tokenStatus: token.status,
+      waitingTokens: metrics.waitingTokens,
+      targetIndex: idx,
+      servingTokens: metrics.servingTokens,
+      centre: token.centre
+    });
+
+    res.json({
+      tokenNumber: token.tokenNumber,
+      serviceName: token.serviceName,
+      centre: token.centre || 'Krishi Seva Kendra - Main Centre',
+      ...result
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to compute Smart ETA' });
   }
 });
 
